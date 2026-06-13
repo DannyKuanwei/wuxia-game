@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>少俠・初入江湖</title>
+<style>
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #0b1410; font-family: "Microsoft JhengHei", system-ui, sans-serif; }
+  #app { position: fixed; inset: 0; }
+  #flash { position: fixed; inset: 0; background: #ff2d2d; opacity: 0; pointer-events: none; z-index: 55; }
+  #flash.on { animation: flashAnim .3s ease; }
+  @keyframes flashAnim { 0%{opacity:0} 30%{opacity:.38} 100%{opacity:0} }
+
+  #title { position: fixed; left: 20px; top: 16px; color: #d7ffe9; user-select: none; text-shadow: 0 2px 8px rgba(0,0,0,.6); }
+  #title h1 { margin: 0; font-size: 22px; letter-spacing: 3px; }
+  #title p  { margin: 2px 0 0; font-size: 12px; opacity: .7; }
+  #modelStatus { position: fixed; right: 16px; top: 16px; color: #bfe9cf; font-size: 12px; background: rgba(0,0,0,.4); padding: 6px 12px; border-radius: 8px; user-select: none; }
+  #hint { position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%); color: #eafff2; background: rgba(0,0,0,.45); padding: 8px 16px; border-radius: 999px; font-size: 14px; letter-spacing: 1px; pointer-events: none; user-select: none; border: 1px solid rgba(120,220,160,.3); }
+
+  #playerHud { position: fixed; left: 20px; bottom: 56px; color: #eafff2; user-select: none; background: rgba(0,0,0,.45); padding: 10px 14px; border-radius: 12px; border: 1px solid rgba(120,220,160,.25); min-width: 200px; }
+  #playerHud .name { font-size: 13px; letter-spacing: 1px; margin-bottom: 6px; }
+  .bar { height: 13px; border-radius: 6px; background: #2a2a2a; overflow: hidden; margin: 3px 0; position: relative; }
+  .bar > span { position: absolute; inset: 0; transform-origin: left; transition: transform .2s ease; }
+  .bar.hp > span { background: linear-gradient(90deg,#ff5d5d,#ff9c6e); }
+  .bar.mp > span { background: linear-gradient(90deg,#5db4ff,#6ee0ff); }
+  .bar .txt { position: absolute; right: 6px; top: 0; font-size: 10px; color: #fff; text-shadow: 0 1px 2px #000; }
+  #killCount { position: fixed; right: 16px; bottom: 20px; color: #eafff2; background: rgba(0,0,0,.4); padding: 6px 12px; border-radius: 8px; font-size: 13px; user-select: none; }
+
+  #screen { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 22px; z-index: 80; background: rgba(5,12,8,.88); color: #eafff2; text-align: center; }
+  #screen.hide { display: none; }
+  #screen h1 { font-size: 40px; letter-spacing: 8px; margin: 0; }
+  #screen p { opacity: .85; margin: 0; max-width: 560px; line-height: 1.9; font-size: 15px; }
+  #screen button { font-size: 18px; letter-spacing: 3px; padding: 14px 40px; border-radius: 14px; cursor: pointer; border: 2px solid #8fe6b0; background: #1c5a38; color: #eafff2; font-family: inherit; transition: .12s; }
+  #screen button:hover { background: #277a4c; transform: translateY(-2px); }
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div id="flash"></div>
+<div id="title"><h1>少俠・初入江湖</h1><p>竹林・第一章</p></div>
+<div id="modelStatus">主角：臨時模型</div>
+
+<div id="playerHud">
+  <div class="name">少俠</div>
+  <div class="bar hp"><span id="hpFill"></span><span class="txt" id="hpTxt"></span></div>
+  <div class="bar mp"><span id="mpFill"></span><span class="txt" id="mpTxt"></span></div>
+</div>
+<div id="killCount">擊敗 0</div>
+<div id="hint">W A S D 移動　・　J / 空白鍵 攻擊　・　K 出招（耗內力）</div>
+
+<div id="screen">
+  <h1 id="scTitle">少俠・初入江湖</h1>
+  <p id="scText">竹林之中，群敵環伺。<br>少俠，迎戰一波波來犯的敵人——擊敗的越多越好，撐到氣血耗盡為止！<br><br>W A S D 移動　・　J / 空白鍵 攻擊　・　K 出招</p>
+  <button id="scBtn">進入竹林</button>
+</div>
+
+<script type="importmap">
+{ "imports": {
+  "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+  "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+}}
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+
+// ── 場景 ──
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x1d3b2a);
+scene.fog = new THREE.Fog(0x1d3b2a, 24, 58);
+
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setSize(innerWidth, innerHeight);
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.shadowMap.enabled = true;
+document.getElementById('app').appendChild(renderer.domElement);
+
+const camera = new THREE.PerspectiveCamera(45, innerWidth / innerHeight, 0.1, 200);
+const CAM_OFFSET = new THREE.Vector3(0, 16, 14);
+camera.position.copy(CAM_OFFSET);
+
+scene.add(new THREE.HemisphereLight(0xcfeedd, 0x24402f, 0.95));
+const sun = new THREE.DirectionalLight(0xfff4d6, 1.1);
+sun.position.set(10, 20, 8); sun.castShadow = true;
+sun.shadow.mapSize.set(1024, 1024);
+sun.shadow.camera.near = 1; sun.shadow.camera.far = 60;
+sun.shadow.camera.left = -30; sun.shadow.camera.right = 30; sun.shadow.camera.top = 30; sun.shadow.camera.bottom = -30;
+scene.add(sun);
+
+const ground = new THREE.Mesh(new THREE.CircleGeometry(40, 48), new THREE.MeshStandardMaterial({ color: 0x3a5b3f, roughness: 1 }));
+ground.rotation.x = -Math.PI / 2; ground.receiveShadow = true; scene.add(ground);
+const path = new THREE.Mesh(new THREE.CircleGeometry(6, 32), new THREE.MeshStandardMaterial({ color: 0x6b7350, roughness: 1 }));
+path.rotation.x = -Math.PI / 2; path.position.y = 0.01; scene.add(path);
+
+function makeBamboo() {
+  const g = new THREE.Group();
+  const segMat = new THREE.MeshStandardMaterial({ color: 0x5fa05a, roughness: 0.8 });
+  const leafMat = new THREE.MeshStandardMaterial({ color: 0x77c46a, roughness: 0.9 });
+  const h = 6 + Math.random() * 4, segs = 5;
+  for (let i = 0; i < segs; i++) {
+    const seg = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.18, h / segs * 0.92, 7), segMat);
+    seg.position.y = (i + 0.5) * (h / segs); seg.castShadow = true; g.add(seg);
+  }
+  for (let i = 0; i < 4; i++) {
+    const leaf = new THREE.Mesh(new THREE.ConeGeometry(0.5, 1.6, 4), leafMat);
+    leaf.position.set((Math.random() - 0.5) * 1.2, h + Math.random(), (Math.random() - 0.5) * 1.2);
+    leaf.rotation.set(Math.random(), Math.random(), Math.random()); leaf.castShadow = true; g.add(leaf);
+  }
+  g.scale.setScalar(0.8 + Math.random() * 0.5);
+  return g;
+}
+for (let i = 0; i < 70; i++) {
+  const a = Math.random() * Math.PI * 2, r = 8 + Math.random() * 28;
+  const b = makeBamboo(); b.position.set(Math.cos(a) * r, 0, Math.sin(a) * r); scene.add(b);
+}
+
+// ── 主角 ──
+function makePlaceholderHero() {
+  const g = new THREE.Group();
+  const robe = new THREE.MeshStandardMaterial({ color: 0xdfe8f5, roughness: 0.7 });
+  const trim = new THREE.MeshStandardMaterial({ color: 0x3f6cd6, roughness: 0.6 });
+  const skin = new THREE.MeshStandardMaterial({ color: 0xf0c9a0, roughness: 0.8 });
+  const steel = new THREE.MeshStandardMaterial({ color: 0xbfc7d0, metalness: 0.6, roughness: 0.4 });
+  const body = new THREE.Mesh(new THREE.CylinderGeometry(0.45, 0.55, 1.3, 12), robe); body.position.y = 1.05; body.castShadow = true; g.add(body);
+  const sash = new THREE.Mesh(new THREE.CylinderGeometry(0.56, 0.56, 0.18, 12), trim); sash.position.y = 1.0; g.add(sash);
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.34, 16, 16), skin); head.position.y = 2.0; head.castShadow = true; g.add(head);
+  const bun = new THREE.Mesh(new THREE.SphereGeometry(0.16, 10, 10), new THREE.MeshStandardMaterial({ color: 0x222222 })); bun.position.y = 2.32; g.add(bun);
+  const sword = new THREE.Mesh(new THREE.BoxGeometry(0.07, 1.5, 0.12), steel); sword.position.set(-0.45, 1.3, -0.2); sword.rotation.z = 0.5; g.add(sword);
+  const nose = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.12, 0.2), skin); nose.position.set(0, 1.98, 0.34); g.add(nose);
+  return g;
+}
+let hero = makePlaceholderHero(); scene.add(hero);
+
+new GLTFLoader().load('models/hero.glb', (gltf) => {
+  const model = gltf.scene;
+  const box = new THREE.Box3().setFromObject(model);
+  const size = new THREE.Vector3(); box.getSize(size);
+  const center = new THREE.Vector3(); box.getCenter(center);
+  const s = 2.2 / (size.y || 1); model.scale.setScalar(s);
+  model.position.sub(center.multiplyScalar(s)); model.position.y = 0;
+  model.traverse(o => { if (o.isMesh) o.castShadow = true; });
+  const holder = new THREE.Group(); holder.add(model);
+  holder.position.copy(hero.position); scene.remove(hero); hero = holder; scene.add(hero);
+  modelStatus.textContent = '主角：hero.glb ✓'; modelStatus.style.color = '#9af5b8';
+}, undefined, () => {});
+
+// ── 數值 ──
+const player = { hp: 120, maxhp: 120, mp: 50, maxmp: 50, atk: 16, skillDmg: 30, skillCost: 18 };
+const ENEMY_DEFS = [
+  { id:'drunkard', name:'醉漢',     color:0x9c6b3f, hp:40,  atk:6,  speed:2.2, range:2.0, cd:1.4, pos:[-10,-6]  },
+  { id:'thug',     name:'惡霸打手', color:0x555a4e, hp:65,  atk:11, speed:2.6, range:2.1, cd:1.3, pos:[ 13,-11] },
+  { id:'thief',    name:'女飛賊',   color:0x33334a, hp:55,  atk:14, speed:4.2, range:2.0, cd:1.0, pos:[-15, 9]  },
+  { id:'boss',     name:'拳師頭目', color:0x8a2f2f, hp:140, atk:18, speed:2.8, range:2.4, cd:1.5, pos:[  0,-17] },
+];
+
+// 血條 sprite（畫在怪頭上，永遠面向鏡頭）
+function makeBarSprite() {
+  const cv = document.createElement('canvas'); cv.width = 128; cv.height = 18;
+  const tex = new THREE.CanvasTexture(cv);
+  const spr = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, depthTest: false, transparent: true }));
+  spr.scale.set(2.2, 0.32, 1); spr.renderOrder = 999;
+  spr.userData = { cv, tex };
+  return spr;
+}
+function drawBar(spr, ratio) {
+  const { cv, tex } = spr.userData; const c = cv.getContext('2d');
+  c.clearRect(0, 0, 128, 18);
+  c.fillStyle = '#000'; c.globalAlpha = .55; c.fillRect(0, 0, 128, 18); c.globalAlpha = 1;
+  c.fillStyle = ratio > .5 ? '#5ee06a' : ratio > .25 ? '#f5c542' : '#ff5a5a';
+  c.fillRect(2, 2, 124 * Math.max(0, ratio), 14);
+  c.strokeStyle = '#0d2a18'; c.strokeRect(1, 1, 126, 16);
+  tex.needsUpdate = true;
+}
+
+function makePlaceholderEnemy(color) {
+  const g = new THREE.Group();
+  const mat = new THREE.MeshStandardMaterial({ color, roughness: 0.8 });
+  const skin = new THREE.MeshStandardMaterial({ color: 0xe6b88f, roughness: 0.8 });
+  const body = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.6, 1.3, 12), mat); body.position.y = 1.0; body.castShadow = true; g.add(body);
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.36, 16, 16), skin); head.position.y = 1.95; head.castShadow = true; g.add(head);
+  const nose = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.12, 0.2), skin); nose.position.set(0, 1.93, 0.36); g.add(nose);
+  return g;
+}
+
+const enemies = [];
+ENEMY_DEFS.forEach(def => {
+  const mesh = makePlaceholderEnemy(def.color);
+  mesh.position.set(def.pos[0], 0, def.pos[1]);
+  const bar = makeBarSprite(); bar.position.set(0, 2.7, 0); mesh.add(bar); drawBar(bar, 1);
+  scene.add(mesh);
+  enemies.push({ def, mesh, bar, hp: def.hp, maxhp: def.hp, alive: true, atkTimer: 0, flash: 0 });
+});
+let kills = 0;
+
+// ── 飄字（傷害數字 sprite）──
+const floaters = [];
+function floatNumber(worldPos, text, color) {
+  const cv = document.createElement('canvas'); cv.width = 128; cv.height = 64;
+  const c = cv.getContext('2d');
+  c.font = 'bold 46px "Microsoft JhengHei", sans-serif'; c.textAlign = 'center'; c.textBaseline = 'middle';
+  c.lineWidth = 6; c.strokeStyle = '#000'; c.strokeText(text, 64, 32);
+  c.fillStyle = color; c.fillText(text, 64, 32);
+  const tex = new THREE.CanvasTexture(cv);
+  const spr = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, depthTest: false, transparent: true }));
+  spr.scale.set(1.6, 0.8, 1); spr.position.copy(worldPos); spr.position.y += 2.6; spr.renderOrder = 1000;
+  scene.add(spr);
+  floaters.push({ spr, life: 0.9 });
+}
+
+// ── 特效 ──
+const flashEl = document.getElementById('flash');
+function screenFlash() { flashEl.classList.remove('on'); void flashEl.offsetWidth; flashEl.classList.add('on'); }
+const rings = [];
+function skillRing() {
+  const ring = new THREE.Mesh(new THREE.TorusGeometry(0.6, 0.12, 8, 32), new THREE.MeshBasicMaterial({ color: 0x9ad8ff, transparent: true }));
+  ring.rotation.x = -Math.PI / 2; ring.position.copy(hero.position); ring.position.y = 0.3;
+  scene.add(ring); rings.push({ ring, life: 0.5 });
+}
+
+// 刀光：面向主角正前方（局部 +Z）的弧形，掛在主角身上自動跟隨
+const SLASH_GEO = new THREE.RingGeometry(0.9, 1.7, 32, 1, 0, Math.PI);   // 180° 半圓劍氣
+SLASH_GEO.rotateX(Math.PI / 2);    // 躺平成水平弧；半圓開口朝向局部 +Z（正面）
+const slashes = [];
+function spawnSlash() {
+  const mat = new THREE.MeshBasicMaterial({ color: 0xddffff, transparent: true, opacity: 0.95, side: THREE.DoubleSide, depthWrite: false });
+  const m = new THREE.Mesh(SLASH_GEO, mat);
+  m.position.set(0, 1.1, 0.2);     // 主角胸口前方
+  hero.add(m);
+  slashes.push({ m, life: 0.22 });
+}
+
+// ── HUD ──
+const $ = id => document.getElementById(id);
+function setBar(fill, txt, cur, max) { fill.style.transform = `scaleX(${Math.max(0, cur) / max})`; txt.textContent = `${Math.max(0, Math.round(cur))}/${max}`; }
+function refreshHud() {
+  setBar($('hpFill'), $('hpTxt'), player.hp, player.maxhp);
+  setBar($('mpFill'), $('mpTxt'), player.mp, player.maxmp);
+  $('killCount').textContent = `擊敗 ${kills}`;
+}
+
+const rand = (a, b) => Math.floor(a + Math.random() * (b - a + 1));
+const dist2D = (a, b) => Math.hypot(a.position.x - b.position.x, a.position.z - b.position.z);
+
+// ── 戰鬥動作 ──
+let mode = 'start';
+let attackCD = 0, heroLunge = 0, freeze = 0;
+let walkPhase = 0, heroMoving = false;
+
+function playerAttack() {
+  if (mode !== 'play' || attackCD > 0) return;
+  attackCD = 0.42; heroLunge = 0.18; spawnSlash();
+  // 只打中「正面扇形範圍內」的怪：距離 + 朝向都要符合，否則沒揮到＝不扣血
+  const ry = hero.rotation.y;
+  const fx = Math.sin(ry), fz = Math.cos(ry);     // 主角正面方向
+  for (const e of enemies) {
+    if (!e.alive) continue;
+    const ddx = e.mesh.position.x - hero.position.x;
+    const ddz = e.mesh.position.z - hero.position.z;
+    const d = Math.hypot(ddx, ddz);
+    if (d > 2.6 || d < 0.001) continue;            // 太遠
+    const dot = (ddx / d) * fx + (ddz / d) * fz;   // 1=正前方, 0=側面(90°), <0=背後
+    if (dot < 0) continue;                         // 正前方 180° 半圓內才算揮到（背後砍不到）
+    damageEnemy(e, rand(player.atk - 3, player.atk + 4));
+  }
+}
+function playerSkill() {
+  if (mode !== 'play' || player.mp < player.skillCost) return;
+  player.mp -= player.skillCost; refreshHud(); skillRing(); heroLunge = 0.2;
+  let hit = false;
+  for (const e of enemies) { if (!e.alive) continue; if (dist2D(hero, e.mesh) < 4.2) { damageEnemy(e, rand(player.skillDmg - 4, player.skillDmg + 6)); hit = true; } }
+}
+function damageEnemy(e, dmg) {
+  e.hp -= dmg; e.flash = 0.12;
+  freeze = Math.max(freeze, 0.06);            // 命中頓格
+  drawBar(e.bar, e.hp / e.maxhp);
+  floatNumber(e.mesh.position, '-' + dmg, '#ffe14d');
+  if (e.hp <= 0) killEnemy(e);
+}
+function killEnemy(e) {
+  e.alive = false; scene.remove(e.mesh); kills++;
+  player.hp = Math.min(player.maxhp, player.hp + 12);   // 戰勝小回血
+  refreshHud();
+  setTimeout(() => respawn(e), 3500);                    // 遠處重生（無限生存）
+}
+function respawn(e) {
+  if (mode !== 'play') return;
+  const a = Math.random() * Math.PI * 2, r = 20 + Math.random() * 8;
+  e.mesh.position.set(Math.cos(a) * r, 0, Math.sin(a) * r);
+  e.mesh.scale.setScalar(1);
+  e.hp = e.maxhp; e.alive = true; e.atkTimer = e.def.cd; e.flash = 0;
+  drawBar(e.bar, 1);
+  scene.add(e.mesh);
+}
+function damagePlayer(e) {
+  const dmg = rand(e.def.atk - 2, e.def.atk + 3);
+  player.hp -= dmg; refreshHud(); screenFlash();
+  floatNumber(hero.position, '-' + dmg, '#ff6a6a');
+  if (player.hp <= 0) gameOver();
+}
+
+function victory() { mode = 'over'; showScreen('奪回秘笈！', '少俠清掃竹林、擊敗拳師頭目，奪回武功秘笈。<br>江湖路，才正要開始……', '再玩一次'); }
+function gameOver() { mode = 'over'; showScreen('少俠倒下了', '氣血耗盡……整頓之後，再戰江湖。', '重新挑戰'); }
+function showScreen(t, html, btn) { $('scTitle').textContent = t; $('scText').innerHTML = html; $('scBtn').textContent = btn; $('screen').classList.remove('hide'); $('scBtn').onclick = () => location.reload(); }
+
+// ── 輸入 ──
+const keys = {};
+addEventListener('keydown', e => {
+  const k = e.key.toLowerCase(); keys[k] = true;
+  if (k === 'j' || k === ' ') { e.preventDefault(); playerAttack(); }
+  if (k === 'k') playerSkill();
+});
+addEventListener('keyup', e => keys[e.key.toLowerCase()] = false);
+
+// 滑鼠瞄準：滑鼠位置投影到地面，主角面向該點
+const mouseNDC = new THREE.Vector2(0, 0);
+const aimRay = new THREE.Raycaster();
+const aimPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+const aimPoint = new THREE.Vector3();
+addEventListener('mousemove', e => {
+  mouseNDC.x = (e.clientX / innerWidth) * 2 - 1;
+  mouseNDC.y = -(e.clientY / innerHeight) * 2 + 1;
+});
+// 點滑鼠左鍵也可揮劍
+addEventListener('mousedown', e => { if (e.button === 0) playerAttack(); });
+
+$('scBtn').onclick = () => { $('screen').classList.add('hide'); mode = 'play'; refreshHud(); };
+
+// ── 主迴圈 ──
+const SPEED = 7, clock = new THREE.Clock(); let t = 0;
+function animate() {
+  requestAnimationFrame(animate);
+  const dt = Math.min(clock.getDelta(), 0.05);
+  if (freeze > 0) { freeze -= dt; renderer.render(scene, camera); return; }   // 命中頓格：定格不更新
+  t += dt;
+  if (attackCD > 0) attackCD -= dt;
+  if (player.mp < player.maxmp) { player.mp = Math.min(player.maxmp, player.mp + dt * 3); setBar($('mpFill'), $('mpTxt'), player.mp, player.maxmp); }
+
+  heroMoving = false;
+  if (mode === 'play') {
+    // 移動
+    let dx = 0, dz = 0;
+    if (keys['w'] || keys['arrowup']) dz -= 1;
+    if (keys['s'] || keys['arrowdown']) dz += 1;
+    if (keys['a'] || keys['arrowleft']) dx -= 1;
+    if (keys['d'] || keys['arrowright']) dx += 1;
+    const len = Math.hypot(dx, dz);
+    heroMoving = len > 0;
+    if (heroMoving) {
+      dx /= len; dz /= len;
+      hero.position.x = THREE.MathUtils.clamp(hero.position.x + dx * SPEED * dt, -36, 36);
+      hero.position.z = THREE.MathUtils.clamp(hero.position.z + dz * SPEED * dt, -36, 36);
+      walkPhase += dt * 11;
+    }
+    // 面向：跟著滑鼠（投影到地面）
+    aimRay.setFromCamera(mouseNDC, camera);
+    if (aimRay.ray.intersectPlane(aimPlane, aimPoint)) {
+      const adx = aimPoint.x - hero.position.x, adz = aimPoint.z - hero.position.z;
+      if (Math.hypot(adx, adz) > 0.15) hero.rotation.y = Math.atan2(adx, adz);
+    }
+    // 敵人 AI
+    for (const e of enemies) {
+      if (!e.alive) continue;
+      const d = dist2D(hero, e.mesh);
+      if (d < 10) {
+        if (d > e.def.range) {
+          const ux = (hero.position.x - e.mesh.position.x) / d, uz = (hero.position.z - e.mesh.position.z) / d;
+          e.mesh.position.x += ux * e.def.speed * dt; e.mesh.position.z += uz * e.def.speed * dt;
+          e.mesh.rotation.y = Math.atan2(ux, uz);
+          e.atkTimer = e.def.cd * 0.5;
+        } else {
+          e.atkTimer -= dt;
+          if (e.atkTimer <= 0) { e.atkTimer = e.def.cd; damagePlayer(e); e.mesh.position.y = 0.25; }
+        }
+      }
+      // 受擊縮放回饋
+      if (e.flash > 0) { e.flash -= dt; e.mesh.scale.setScalar(1 + e.flash * 1.2); } else e.mesh.scale.setScalar(1);
+      e.mesh.position.y += (0 - e.mesh.position.y) * Math.min(1, dt * 10); // 回到地面
+    }
+  }
+
+  // 走路擺動 / 待機浮動 / 出招前傾
+  if (heroMoving) {
+    hero.position.y = Math.abs(Math.sin(walkPhase)) * 0.18;   // 踏步上下起伏
+    hero.rotation.z = Math.sin(walkPhase) * 0.07;             // 左右微傾
+  } else {
+    hero.position.y = Math.sin(t * 3) * 0.04;                 // 待機呼吸浮動
+    hero.rotation.z += (0 - hero.rotation.z) * Math.min(1, dt * 10);  // 平滑回正
+  }
+  if (heroLunge > 0) { heroLunge -= dt; hero.position.y += heroLunge * 1.5; }
+
+  // 飄字上升淡出
+  for (let i = floaters.length - 1; i >= 0; i--) {
+    const f = floaters[i]; f.life -= dt; f.spr.position.y += dt * 1.6; f.spr.material.opacity = Math.max(0, f.life / 0.9);
+    if (f.life <= 0) { scene.remove(f.spr); floaters.splice(i, 1); }
+  }
+  // 技能環擴散
+  for (let i = rings.length - 1; i >= 0; i--) {
+    const r = rings[i]; r.life -= dt; const k = 1 - r.life / 0.5; r.ring.scale.setScalar(0.5 + k * 6); r.ring.material.opacity = r.life / 0.5;
+    if (r.life <= 0) { scene.remove(r.ring); rings.splice(i, 1); }
+  }
+  // 刀光：掃過（旋轉）+ 放大 + 淡出
+  for (let i = slashes.length - 1; i >= 0; i--) {
+    const s = slashes[i]; s.life -= dt; const p = 1 - s.life / 0.22;
+    s.m.scale.setScalar(0.85 + p * 0.5);
+    s.m.rotation.y = -0.18 + p * 0.36;        // 輕微由右往左掃（半圓劍氣不會掃到背後）
+    s.m.material.opacity = Math.max(0, s.life / 0.22) * 0.95;
+    if (s.life <= 0) { hero.remove(s.m); s.m.material.dispose(); slashes.splice(i, 1); }
+  }
+
+  // 鏡頭跟隨
+  const target = hero.position.clone().add(CAM_OFFSET);
+  camera.position.lerp(target, 1 - Math.pow(0.001, dt));
+  camera.lookAt(hero.position.x, 1, hero.position.z);
+  renderer.render(scene, camera);
+}
+animate();
+
+addEventListener('resize', () => {
+  camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix();
+  renderer.setSize(innerWidth, innerHeight);
+});
+</script>
+</body>
+</html>
