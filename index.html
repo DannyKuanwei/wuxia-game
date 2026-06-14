@@ -782,20 +782,33 @@ addEventListener('mouseup',e=>{if(e.button===2)P.blocking=false;});
 addEventListener('contextmenu',e=>e.preventDefault());
 const mouseNDC=new THREE.Vector2(0,0);
 const aimRay=new THREE.Raycaster(),aimPlane=new THREE.Plane(new THREE.Vector3(0,1,0),0),aimPoint=new THREE.Vector3();
-addEventListener('mousemove',e=>{mouseNDC.x=(e.clientX/innerWidth)*2-1;mouseNDC.y=-(e.clientY/innerHeight)*2+1;});
+addEventListener('mousemove',e=>{
+  if(pointerLocked&&camMode===2){
+    hero.rotation.y-=e.movementX*.0022;
+    fpsPitch=clamp(fpsPitch-e.movementY*.0022,-Math.PI/2.8,Math.PI/2.8);
+  }else{
+    mouseNDC.x=(e.clientX/innerWidth)*2-1;mouseNDC.y=-(e.clientY/innerHeight)*2+1;
+  }
+});
 
 // ── camera modes ──
-let camMode=0;
+let camMode=0,fpsPitch=0,pointerLocked=false;
 const CAM_MODES=[
   {name:'俯視角',  offset:new THREE.Vector3(0,18,16), fov:52},
   {name:'第三人稱',offset:new THREE.Vector3(0,6,10),  fov:68},
-  {name:'第一人稱',offset:new THREE.Vector3(0,2,0),   fov:85},
+  {name:'第一人稱',offset:new THREE.Vector3(0,2,0),   fov:90},
 ];
 let camLabelTimer=0;
+document.addEventListener('pointerlockchange',()=>{
+  pointerLocked=document.pointerLockElement===renderer.domElement;
+  if(!pointerLocked&&camMode===2){camMode=0;camera.fov=CAM_MODES[0].fov;camera.updateProjectionMatrix();hero.visible=true;}
+});
 function switchCam(){
   camMode=(camMode+1)%3;
   camera.fov=CAM_MODES[camMode].fov; camera.updateProjectionMatrix();
   hero.visible=camMode!==2;
+  if(camMode===2){fpsPitch=0;renderer.domElement.requestPointerLock();}
+  else if(pointerLocked){document.exitPointerLock();}
   const lbl=$('camLabel'); lbl.textContent=CAM_MODES[camMode].name; lbl.style.opacity=1;
   camLabelTimer=2.0;
 }
@@ -865,8 +878,10 @@ function animate(){
       walkPhase+=dt*(P.sprinting?17:11);
     }
     if(P.dodgeTimer>0){hero.position.x=clamp(hero.position.x+dodgeDir.x*14*dt,-190,190);hero.position.z=clamp(hero.position.z+dodgeDir.z*14*dt,-190,190);}
-    aimRay.setFromCamera(mouseNDC,camera);
-    if(aimRay.ray.intersectPlane(aimPlane,aimPoint)){const adx=aimPoint.x-hero.position.x,adz=aimPoint.z-hero.position.z;if(Math.hypot(adx,adz)>.15)hero.rotation.y=Math.atan2(adx,adz);}
+    if(camMode!==2){
+      aimRay.setFromCamera(mouseNDC,camera);
+      if(aimRay.ray.intersectPlane(aimPlane,aimPoint)){const adx=aimPoint.x-hero.position.x,adz=aimPoint.z-hero.position.z;if(Math.hypot(adx,adz)>.15)hero.rotation.y=Math.atan2(adx,adz);}
+    }
     hero.scale.y=P.crouching?.65:1;
     updateZone();
     let near=false;
@@ -926,10 +941,13 @@ function animate(){
     camOrbit+=dt*.18;
     const cr=32;camera.position.set(Math.sin(camOrbit)*cr,16,Math.cos(camOrbit)*cr);camera.lookAt(0,1,0);
   }else if(camMode===2){
-    // first-person: position at hero head, look in facing direction
     const ry=hero.rotation.y;
     const eye=hero.position.clone().add(new THREE.Vector3(0,2.1,0));
-    const fwd=new THREE.Vector3(Math.sin(ry),-.05,Math.cos(ry));
+    const fwd=new THREE.Vector3(
+      Math.sin(ry)*Math.cos(fpsPitch),
+      Math.sin(fpsPitch),
+      Math.cos(ry)*Math.cos(fpsPitch)
+    );
     camera.position.copy(eye);
     camera.lookAt(eye.clone().add(fwd.multiplyScalar(10)));
   }else{
