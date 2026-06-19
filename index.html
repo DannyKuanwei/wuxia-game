@@ -284,6 +284,7 @@ body.touch #ultBtn{right:16px;bottom:270px}
     </div>
   </div>
   <button id="startBtn" onclick="if(window._doStart)window._doStart()">踏入江湖 ▶</button>
+  <button id="continueBtn" style="display:none;margin-top:10px;background:#2b7a4b" onclick="if(window._loadGame)window._loadGame()">繼續上次冒險 ⤺</button>
 </div>
 
 <!-- 死亡畫面 -->
@@ -760,6 +761,43 @@ window._doStart=()=>{
   showHUD(); mode='play'; refreshHud(); updateNameBanner();
   floatText(hero.position,'出發！往南方巨龍山洞救公主！','#ffd700');
   startNextQuest();
+  saveGame();
+};
+
+// ── 輕量存檔（localStorage，任務檢查點自動存）──
+const SAVE_KEY='daxia_save_v1';
+function saveGame(){
+  try{
+    if(!chosenClass) return;
+    const data={
+      v:1, cls:chosenClass, P:{...P},
+      quests:QUESTS.map(q=>({done:q.done,claimed:q.claimed})),
+      talked:[...talkedNpcs],
+      pos:hero?{x:hero.position.x,z:hero.position.z}:null,
+      heroName:$('heroName').textContent,
+      t:Date.now(),
+    };
+    localStorage.setItem(SAVE_KEY,JSON.stringify(data));
+  }catch(e){}
+}
+function hasSave(){ try{return !!localStorage.getItem(SAVE_KEY);}catch(e){return false;} }
+window._loadGame=()=>{
+  let data; try{data=JSON.parse(localStorage.getItem(SAVE_KEY));}catch(e){}
+  if(!data||!data.cls){return;}
+  chosenClass=data.cls;
+  const cls=CLASSES[chosenClass]; Object.assign(P,cls);   // 先套基礎，再覆蓋存檔
+  Object.assign(P,data.P);
+  _SPEED=CLASS_SPEED[chosenClass]||6.5; _SPRINT=_SPEED*1.55;
+  data.quests.forEach((s,i)=>{ if(QUESTS[i]){QUESTS[i].done=s.done;QUESTS[i].claimed=s.claimed;} });
+  talkedNpcs.clear(); (data.talked||[]).forEach(n=>talkedNpcs.add(n));
+  $('heroName').textContent=data.heroName||'❤ 少俠';
+  $('charCreate').style.display='none';
+  loadHeroModel(chosenClass);
+  hero.rotation.y=Math.PI;
+  if(data.pos){hero.position.x=data.pos.x;hero.position.z=data.pos.z;}
+  showHUD(); mode='play'; refreshHud(); updateNameBanner();
+  startNextQuest();
+  floatText(hero.position,'讀取進度，繼續冒險！','#8fe6b0');
 };
 
 // ══════════ 《大俠崩吧》念名字破防 Boss 戰 ══════════
@@ -1041,6 +1079,7 @@ function endIntro(){
   $('introOverlay').style.display='none'; $('qteOverlay').style.display='none';
   $('charCreate').style.display='flex';
   if(!chosenClass){chosenClass='sword';$('cc_sword').classList.add('sel');$('startBtn').disabled=false;}
+  if(typeof hasSave==='function'&&hasSave()){$('continueBtn').style.display='inline-block';}
 }
 
 // ── NPCs ──
@@ -1490,6 +1529,7 @@ function claimQuest(){
   activeQuest.claimed=true;
   addCoins(activeQuest.reward.coins);gainXP(activeQuest.reward.xp);
   floatText(hero.position,'任務完成！+'+activeQuest.reward.coins+'🪙','#ffd700');
+  saveGame();   // 任務檢查點：自動存檔
   setTimeout(startNextQuest,1500);
 }
 
