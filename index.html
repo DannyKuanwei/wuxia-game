@@ -285,7 +285,10 @@ body.touch #ultBtn{right:16px;bottom:270px}
 <div id="goScreen">
   <h1 id="goTitle">少俠倒下了</h1>
   <p id="goText"></p>
-  <button onclick="location.reload()">重新挑戰</button>
+  <div style="display:flex;gap:10px;flex-wrap:wrap;justify-content:center">
+    <button id="seqBtn" style="display:none">▶ 續集序章</button>
+    <button onclick="location.reload()">重新挑戰</button>
+  </div>
 </div>
 
 <!-- 遊戲 HUD（一開始隱藏） -->
@@ -913,6 +916,23 @@ function nextCard(){
   const s=cardSteps.shift();
   $('introName').textContent=s[0]; $('introText').textContent=s[1]; $('introOverlay').style.display='flex';
 }
+// 續集序章劇情：綠色大山的召喚
+function playSequel(){
+  $('goScreen').style.display='none';
+  playCards([
+    ['旁白','十八年後⋯當年的嬰兒長大了。對外，他叫「王浩然」。'],
+    ['旁白','但他的真名是——「達拉崩吧斑得綠綠牛仔庫塔卡提考特蘇瓦西拉蘇娜丹妮謝莉紅迪卜多比魯翁」。'],
+    ['二代目','娘，為什麼我的名字裡，有爹的名、娘的名⋯中間還夾著一段「庫塔卡提考特蘇瓦西拉」？'],
+    ['米婭（母）','（眼神飄移）那個⋯呵呵⋯孩子，別問那麼多，吃飯吃飯。'],
+    ['二代目','還有「綠綠牛仔」是什麼意思？村口的大叔每次看到我都在偷笑⋯'],
+    ['旁白','就在此時，南方的「綠色大山」傳來一聲悠長的龍吟——'],
+    ['？？？（綠龍）','回來吧⋯孩子⋯回到綠色大山⋯'],
+    ['米婭（母）','（臉色發白）不可能⋯牠不是早就被你爹打敗了嗎⋯'],
+    ['二代目','娘你別怕，我去會會這條龍——順便，把我的身世問個清楚！'],
+    ['旁白','於是二代目踏上「綠色大山」。等著他的，是比念名字更可怕的噩夢⋯'],
+    ['旁白','《大俠崩吧 2：綠色大山的召喚》　敬請期待 · 未完待續'],
+  ], ()=>{ $('goTitle').textContent='未完待續'; $('goText').innerHTML='《大俠崩吧 2：綠色大山的召喚》<br>——綠色大山，等你來闖。'; $('seqBtn').style.display='none'; $('goScreen').style.display='flex'; });
+}
 function rescuePrincess(){
   playCards([
     ['公主','大俠！你終於來救我了！（甩了甩頭髮）'],
@@ -933,7 +953,8 @@ function showEnding(){
     '多年後孩子出生——為避免麻煩，取名「王浩然」。<br>'+
     '⋯⋯不，開玩笑的。孩子的真名是：<br>'+
     '<span style="color:#e8b84b">「'+NAMES.child+'」</span><br>'+
-    '（咦？怎麼混進了巨龍的名字「庫塔卡提考特蘇瓦西拉」，<br>中間還夾著「綠綠牛仔」⋯？！下回分曉——《大俠崩吧2：綠色大山的召喚》）';
+    '（咦？怎麼混進了巨龍的名字「庫塔卡提考特蘇瓦西拉」，<br>中間還夾著「綠綠牛仔」⋯？！）';
+  $('seqBtn').style.display='';   // 通關才出現續集序章
   $('goScreen').style.display='flex';
 }
 // ── 開場劇情（主角廢話→村長委託→國王問名→報名笑點→選職業）──
@@ -1642,7 +1663,9 @@ let mode='charCreate';
 let _SPEED=6.5,_SPRINT=10.5;
 function gameOver(){
   mode='over';
+  $('goTitle').textContent='少俠倒下了';
   $('goText').innerHTML=`氣血耗盡⋯<br>擊敗 ${kills} 人・累積 ${P.coins} 兩・等級 ${P.level}<br>整頓之後，再入江湖！`;
+  $('seqBtn').style.display='none';
   $('goScreen').style.display='flex';
 }
 
@@ -1849,6 +1872,7 @@ $('introOverlay').addEventListener('click',e=>{ if(e.target.id==='introSkip')ret
 $('introSkip').addEventListener('click',e=>{ e.stopPropagation(); if(cardSteps){cardSteps=[];nextCard();return;} endIntro(); });
 $('wantedClose').addEventListener('click',()=>window.closeWanted());
 $('ultBtn').addEventListener('click',()=>startUltimate());
+$('seqBtn').addEventListener('click',()=>playSequel());
 // ── BGM：YouTube《達拉崩吧》循環播放 ──
 let ytPlayer=null,ytReady=false,bgmStarted=false,muted=false;
 (function(){const s=document.createElement('script');s.src='https://www.youtube.com/iframe_api';document.head.appendChild(s);})();
