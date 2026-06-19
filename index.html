@@ -898,11 +898,11 @@ function endIntro(){
 
 // ── NPCs ──
 const NPC_DEFS=[
-  {type:'civilian',name:'老農夫',  color:0xa07848,pos:[2,-47],   hp:40, atk:3, spd:1.8,range:1.6,cd:2.0,patrol:null,dialogue:['我這菜種了三天⋯啊不對，三年了啦。','你誰啊？喔～那個達拉什麼翁的大俠喔。','大俠啊，你褲子後面破了個洞欸。']},
-  {type:'civilian',name:'村婦',    color:0xd4a0b0,pos:[-5,-51],  hp:30, atk:2, spd:2.0,range:1.6,cd:2.2,patrol:null,dialogue:['米婭被龍抓走了，嘖嘖，長那麼漂亮有什麼用。','欸，你有看到我家的雞嗎？','你長得好像我前夫⋯才怪。']},
-  {type:'civilian',name:'孩童',    color:0xf0c060,pos:[6,-57],   hp:20, atk:1, spd:2.8,range:1.5,cd:2.5,patrol:null,dialogue:['哥哥你會飛簷走壁嗎？教我教我！','壞人名字很長，到底多長啊？','我長大也要當大俠，叫⋯王浩然！']},
-  {type:'civilian',name:'旅客',    color:0x889090,pos:[-2,-44],  hp:50, atk:4, spd:1.6,range:1.6,cd:1.8,patrol:null,dialogue:['請問⋯這裡是蒙達魯克硫斯伯古比奇巴勒城嗎？','走了三天腳好痠，怎麼還沒到。','江湖險惡，我看還是回家好了。']},
-  {type:'civilian',name:'樵夫',    color:0x9a7040,pos:[15,-35],  hp:45, atk:5, spd:1.9,range:1.6,cd:1.9,patrol:null,dialogue:['這棵樹比我祖宗還老。','大俠，看我這斧頭利不利？（揮）哎呀差點砍到你。','早睡早起，砍柴砍到死。']},
+  {type:'civilian',name:'老農夫',  color:0xa07848,pos:[2,-47],   hp:40, atk:3, spd:1.8,range:1.6,cd:2.0,patrol:null,model:'models/villager/man.glb',mh:1.2,dialogue:['我這菜種了三天⋯啊不對，三年了啦。','你誰啊？喔～那個達拉什麼翁的大俠喔。','大俠啊，你褲子後面破了個洞欸。']},
+  {type:'civilian',name:'村婦',    color:0xd4a0b0,pos:[-5,-51],  hp:30, atk:2, spd:2.0,range:1.6,cd:2.2,patrol:null,model:'models/villager/woman.glb',mh:1.15,dialogue:['米婭被龍抓走了，嘖嘖，長那麼漂亮有什麼用。','欸，你有看到我家的雞嗎？','你長得好像我前夫⋯才怪。']},
+  {type:'civilian',name:'孩童',    color:0xf0c060,pos:[6,-57],   hp:20, atk:1, spd:2.8,range:1.5,cd:2.5,patrol:null,model:'models/villager/child.glb',mh:0.85,dialogue:['哥哥你會飛簷走壁嗎？教我教我！','壞人名字很長，到底多長啊？','我長大也要當大俠，叫⋯王浩然！']},
+  {type:'civilian',name:'旅客',    color:0x889090,pos:[-2,-44],  hp:50, atk:4, spd:1.6,range:1.6,cd:1.8,patrol:null,model:'models/villager/man.glb',mh:1.2,dialogue:['請問⋯這裡是蒙達魯克硫斯伯古比奇巴勒城嗎？','走了三天腳好痠，怎麼還沒到。','江湖險惡，我看還是回家好了。']},
+  {type:'civilian',name:'樵夫',    color:0x9a7040,pos:[15,-35],  hp:45, atk:5, spd:1.9,range:1.6,cd:1.9,patrol:null,model:'models/villager/man.glb',mh:1.25,dialogue:['這棵樹比我祖宗還老。','大俠，看我這斧頭利不利？（揮）哎呀差點砍到你。','早睡早起，砍柴砍到死。']},
   {type:'guard',   name:'村衛兵',  color:0x304058,pos:[0,-37],   hp:90, atk:15,spd:3.2,range:2.0,cd:1.3,patrol:[[-4,-36],[4,-36],[4,-51],[-4,-51]]},
   {type:'guard',   name:'守城兵',  color:0x304058,pos:[10,-43],  hp:90, atk:15,spd:3.2,range:2.0,cd:1.3,patrol:[[10,-37],[10,-53]]},
   {type:'guard',   name:'巡邏兵',  color:0x304058,pos:[-12,-49], hp:90, atk:15,spd:3.2,range:2.0,cd:1.3,patrol:[[-12,-41],[-12,-61]]},
@@ -919,7 +919,7 @@ const NPC_DEFS=[
   {type:'elder',   name:'掃地僧',  color:0xd0c0a0,pos:[-55,-2],  hp:999,atk:1, spd:0,  range:1.5,cd:5.0,patrol:null,dialogue:['施主，萬事以和為貴……','你這殺氣，老衲勸你放下屠刀。','江湖險惡，但心存善念，方為正道。']},
   {type:'hermit',  name:'武林高手',color:0x3a3a3a,pos:[68,-12],  hp:220,atk:30,spd:3.8,range:2.4,cd:0.9,patrol:[[68,-6],[68,-22]]},
   {type:'cultboss',name:'巨龍',color:0x8a1a1a,pos:[0,72],    hp:CONFIG.boss.maxHp,atk:18,spd:1.8,range:3.4,cd:1.8,patrol:null,model:'models/dragon/dragon.glb',mh:3.6},
-  {type:'civilian',name:'老翁',    color:0xb0a080,pos:[-50,6],   hp:35, atk:2, spd:1.4,range:1.5,cd:2.5,patrol:null,dialogue:['古寺清淨，少俠莫要喧嘩。','佛法無邊，回頭是岸哪……']},
+  {type:'civilian',name:'老翁',    color:0xb0a080,pos:[-50,6],   hp:35, atk:2, spd:1.4,range:1.5,cd:2.5,patrol:null,model:'models/villager/man.glb',mh:1.15,dialogue:['古寺清淨，少俠莫要喧嘩。','佛法無邊，回頭是岸哪……']},
 ];
 function mkNPC(color){
   const g=new THREE.Group(),mat=new THREE.MeshStandardMaterial({color,roughness:.8}),skin=new THREE.MeshStandardMaterial({color:0xe6b88f,roughness:.8});
