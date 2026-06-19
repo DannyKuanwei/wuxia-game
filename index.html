@@ -898,11 +898,28 @@ function defeatCultBoss(b){
   b.alive=false; scene.remove(b.mesh); $('bossBar').style.display='none'; deathBurst(b.mesh.position);
   floatText(b.mesh.position,'巨龍倒下了！','#e8b84b');
   if(activeQuest&&activeQuest.goal==='dragon'){activeQuest.claimed=true;addCoins(activeQuest.reward.coins);gainXP(activeQuest.reward.xp);}
-  setTimeout(()=>startReportName('「行不更名，坐不改姓。老子就是——」',showEnding),1000);
+  setTimeout(()=>rescuePrincess(),1000);   // 救公主對話 → 結局（不再重複報名QTE）
 }
 function finisherDone(){
   qteActive=false; $('qteOverlay').style.display='none';
   const cb=qteOnDone; qteOnDone=null; if(cb) cb();
+}
+// 通用對話卡播放器（沿用開場 introOverlay）
+let cardSteps=null,cardOnEnd=null;
+function playCards(steps,onEnd){ cardSteps=steps.slice(); cardOnEnd=onEnd||null; mode='qte'; nextCard(); }
+function nextCard(){
+  if(!cardSteps) return;
+  if(!cardSteps.length){ const cb=cardOnEnd; cardSteps=null; cardOnEnd=null; $('introOverlay').style.display='none'; if(cb)cb(); return; }
+  const s=cardSteps.shift();
+  $('introName').textContent=s[0]; $('introText').textContent=s[1]; $('introOverlay').style.display='flex';
+}
+function rescuePrincess(){
+  playCards([
+    ['公主','大俠！你終於來救我了！（甩了甩頭髮）'],
+    ['少年','姑娘別怕，我「達拉崩吧斑得貝迪卜多比魯翁」這就帶你回家！'],
+    ['公主','⋯⋯達拉什麼？算了算了，反正你救了我，嫁了嫁了 ❤'],
+    ['旁白','英雄帶著公主米婭莫拉蘇娜丹妮謝莉紅，踏上回鄉的路——'],
+  ], showEnding);
 }
 function showEnding(){
   mode='over';
@@ -1801,8 +1818,8 @@ animate();
 
 // ── 載入後先演開場劇情，再跳職業選擇 ──
 $('lsProg').style.width='100%';
-$('introOverlay').addEventListener('click',e=>{ if(e.target.id==='introSkip')return; if(introActive)nextIntro(); });
-$('introSkip').addEventListener('click',e=>{ e.stopPropagation(); endIntro(); });
+$('introOverlay').addEventListener('click',e=>{ if(e.target.id==='introSkip')return; if(cardSteps){nextCard();return;} if(introActive)nextIntro(); });
+$('introSkip').addEventListener('click',e=>{ e.stopPropagation(); if(cardSteps){cardSteps=[];nextCard();return;} endIntro(); });
 $('wantedClose').addEventListener('click',()=>window.closeWanted());
 $('ultBtn').addEventListener('click',()=>startUltimate());
 // ── BGM：YouTube《達拉崩吧》循環播放 ──
