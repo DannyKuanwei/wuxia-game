@@ -618,16 +618,24 @@ const NAMES={
   heroDisplay:'那個……達拉什麼翁的大俠',     // 名字存檔系統：NPC 永遠這樣叫主角
   barks:['不對！是昆圖庫塔卡提考特蘇瓦西拉松！','連本座名諱都念不對？','哈哈哈，再說一次！','越罵越有精神！'],
 };
-let qteActive=false,qteBoss=null,qteIdx=0,qteCellTimer=0,qteCellMax=0,qteChars=null,qteFinisher=false,qteOnDone=null;
+let qteActive=false,qteBoss=null,qteIdx=0,qteCellTimer=0,qteCellMax=0,qteChars=null,qteFinisher=false,qteOnDone=null,qteDistract=null;
+// 教學關小怪招式的通用干擾字池
+const TUT_DISTRACT='刀劍拳掌腿斬劈刺踢打砍削挑撩崩轟爆旋飛天外仙橫豎錘鞭爪'.split('');
 const _shuf=a=>{a=a.slice();for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;};
 const qteWindow=i=>Math.max(CONFIG.nameQTE.minWindow,CONFIG.nameQTE.baseWindow-i*CONFIG.nameQTE.decayPerChar);
 
 function startBreak(boss){
   if(qteActive||mode!=='play') return;
-  qteActive=true; qteBoss=boss; qteFinisher=false; qteChars=NAMES.boss.chars; qteIdx=0; mode='qte';
+  qteActive=true; qteBoss=boss; qteFinisher=false; qteIdx=0; mode='qte';
   if(boss) boss._invincible=true;
   $('qteAnswered').textContent='';
-  $('qteBark').textContent='巨龍：「我乃 昆圖庫塔卡提考特蘇瓦西拉松！」　你：「是不是…昆特牌、提琴、烤蛋塔、蘇打、馬拉松？」';
+  if(boss&&boss.def.type==='tutmob'){       // 教學關小怪：短招式名
+    qteChars=boss.def.move; qteDistract=null;
+    $('qteBark').textContent=boss.def.name+' 使出招式「'+boss.def.move.join('')+'」！　點出招式的字來破招'+(boss.def.move.length>=5?'——字越多，傷害越高！':'');
+  }else{                                     // 巨龍：全名
+    qteChars=NAMES.boss.chars; qteDistract=NAMES.boss.distract;
+    $('qteBark').textContent='巨龍：「我乃 昆圖庫塔卡提考特蘇瓦西拉松！」　你：「是不是…昆特牌、提琴、烤蛋塔、蘇打、馬拉松？」';
+  }
   $('qteOverlay').style.display='flex';
   showQteCell();
 }
@@ -640,10 +648,12 @@ function startReportName(bark,onDone){     // 報名號 QTE（開場報名、結
 }
 function showQteCell(){
   const i=qteIdx,correct=qteChars[i];
-  $('qteHint').textContent=qteFinisher?('報出名號（第 '+(i+1)+'/'+qteChars.length+' 字）'):('點出教主的名字（第 '+(i+1)+'/'+qteChars.length+' 字）');
+  const what=qteFinisher?'名號':(qteDistract?'巨龍的名字':'招式');
+  $('qteHint').textContent='點出'+what+'（第 '+(i+1)+'/'+qteChars.length+' 字）';
   let pool;
-  if(qteFinisher) pool=_shuf([...NAMES.boss.chars,...'米婭莫拉蘇娜丹妮謝莉紅'.split('')].filter(c=>c!==correct)).slice(0,4);
-  else pool=_shuf(NAMES.boss.distract[i]||[]).slice(0,4);
+  if(qteFinisher) pool=_shuf([...NAMES.boss.chars,...NAMES.heroine.split('')].filter(c=>c!==correct)).slice(0,4);
+  else if(qteDistract) pool=_shuf(qteDistract[i]||[]).slice(0,4);
+  else pool=_shuf(TUT_DISTRACT.filter(c=>c!==correct)).slice(0,4);   // 教學小怪用通用干擾
   const wrap=$('qteCells'); wrap.innerHTML='';
   _shuf([correct,...pool]).forEach(ch=>{
     const b=document.createElement('button'); b.className='qcand'; b.textContent=ch;
@@ -663,15 +673,21 @@ function onPickChar(ch){
 }
 function breakSuccess(){
   const dmg=qteChars.length*CONFIG.damage.unitBreakDamage, b=qteBoss;
-  $('qteBark').textContent='破——！';
+  const isTut=b&&b.def.type==='tutmob';
+  $('qteBark').textContent=isTut?('破招！'+qteChars.length+' 字 × '+CONFIG.damage.unitBreakDamage+' ＝ '+dmg+' 傷害'):'破——！';
   if(b){ b._invincible=false; b.hp-=dmg; drawBar(b.bar,Math.max(0,b.hp/b.maxhp));
-    floatText(b.mesh.position,'破！-'+dmg,'#e8b84b'); spawnHitParticles(b.mesh.position,0xffcc00,18); screenShake(.2); syncBossBar(b); }
+    floatText(b.mesh.position,'破！-'+dmg,'#e8b84b'); spawnHitParticles(b.mesh.position,0xffcc00,18); screenShake(.2);
+    if(!isTut) syncBossBar(b); }
   endQte();
-  if(b&&b.hp<=0) defeatCultBoss(b);
+  if(b&&b.hp<=0){ b.def.type==='cultboss'?defeatCultBoss(b):killNPC(b); }
 }
 function breakFail(){
   const b=qteBoss;
-  $('qteBark').textContent='教主：「'+NAMES.barks[Math.floor(Math.random()*NAMES.barks.length)]+'」吞下一顆仙丹⋯';
+  if(b&&b.def.type==='tutmob'){      // 教學關：溫和，原地重來
+    $('qteBark').textContent='破招失敗～再試一次！'; if(b)b._invincible=false;
+    qteIdx=0; $('qteAnswered').textContent=''; showQteCell(); return;
+  }
+  $('qteBark').textContent='巨龍：「'+NAMES.barks[Math.floor(Math.random()*NAMES.barks.length)]+'」吞下一顆仙丹⋯';
   if(b){ b._invincible=false; b._enrage=CONFIG.boss.enrageDuration;
     b.maxhp=Math.floor(b.maxhp*CONFIG.fail.hpBloatMult);
     b.hp=Math.min(b.maxhp,b.hp+Math.floor(b.maxhp*CONFIG.fail.healPercent));
@@ -762,6 +778,9 @@ const NPC_DEFS=[
   {type:'guard',   name:'精銳衛士',color:0x203050,pos:[5,-36],   hp:130,atk:20,spd:3.5,range:2.1,cd:1.1,patrol:[[5,-33],[5,-44]]},
   {type:'merchant',name:'鐵匠老李',color:0x705030,pos:[4,-41],   hp:60, atk:5, spd:0,  range:1.5,cd:2.0,patrol:null,dialogue:['老夫打鐵三十年，賣的都是好貨！','少俠要甚麼兵器？快說！'],shop:true},
   {type:'merchant',name:'藥婆',    color:0xc08090,pos:[-4,-41],  hp:50, atk:3, spd:0,  range:1.5,cd:2.5,patrol:null,dialogue:['傷藥靈丹，應有盡有！','少俠，要補補身子嗎？'],shop:true},
+  {type:'tutmob',  name:'山賊小弟',color:0x6a5030,pos:[3,8],     hp:50, atk:0, spd:0,range:1.6,cd:99,patrol:null,move:['橫','斬'],model:'models/bandit/walk.glb',mh:1.15},
+  {type:'tutmob',  name:'山賊嘍囉',color:0x6a5030,pos:[-4,12],   hp:80, atk:0, spd:0,range:1.6,cd:99,patrol:null,move:['迴','旋','踢'],model:'models/bandit/walk.glb',mh:1.15},
+  {type:'tutmob',  name:'山賊頭子',color:0x6a3a20,pos:[2,16],    hp:140,atk:0, spd:0,range:1.6,cd:99,patrol:null,move:['天','外','飛','仙','腿'],model:'models/bandit/walk.glb',mh:1.3},
   {type:'bandit',  name:'山賊甲',  color:0x6a3a20,pos:[8,22],    hp:65, atk:13,spd:3.3,range:2.0,cd:1.3,patrol:[[8,18],[8,32]],model:'models/bandit/walk.glb',mh:1.25},
   {type:'bandit',  name:'山賊乙',  color:0x5a3a28,pos:[-8,24],   hp:65, atk:13,spd:3.3,range:2.0,cd:1.3,patrol:[[-8,18],[-8,34]],model:'models/bandit/walk.glb',mh:1.25},
   {type:'bandit',  name:'女飛賊',  color:0x33334a,pos:[18,30],   hp:55, atk:16,spd:4.2,range:2.0,cd:1.0,patrol:[[18,25],[18,38]],model:'models/bandit/walk.glb',mh:1.2},
@@ -1327,6 +1346,7 @@ function animate(){
       if(!e.alive) continue;const d=dist2(hero,e.mesh);
       if(e.def.type==='guard'){if(P.wanted>=3&&!e.hostile){e.hostile=true;e.state='chase';}if(P.wanted<3&&e.hostile&&e.hp===e.maxhp){e.hostile=false;e.state='patrol';}}
       if((e.def.type==='bandit'||e.def.type==='hermit')&&d<20&&e.state==='patrol') e.state='chase';
+      if(e.def.type==='tutmob'&&d<9&&!qteActive) startBreak(e);   // 走近教學小怪→出招破招
       if(e.def.type==='cultboss'){
         if(d<26&&e.state==='patrol') e.state='chase';
         if(e.state==='chase'&&!qteActive){               // 接戰後計時逼問
