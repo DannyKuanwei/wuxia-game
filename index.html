@@ -725,7 +725,7 @@ const P={
 };
 const WANTED_TXT=['☆☆☆☆☆','★☆☆☆☆','★★☆☆☆','★★★☆☆','★★★★☆','★★★★★'];
 function setWanted(n){P.wanted=clamp(n,0,5);P.wantedCd=35;$('wanted').textContent=WANTED_TXT[P.wanted];$('wanted').style.color=P.wanted>=4?'#ff4422':P.wanted>=2?'#ff9900':P.wanted>=1?'#ffd700':'rgba(255,215,0,.25)';if(P.wanted>=1)showWantedPoster();}
-function gainXP(n){P.xp+=n;if(P.xp>=P.xpNext){P.xp-=P.xpNext;P.level++;P.xpNext=Math.floor(P.xpNext*1.5);P.maxhp+=20;P.hp=P.maxhp;P.maxmp+=10;P.atk+=3;floatText(hero.position,'⬆ 升級！','#ffd700');$('lvTxt').textContent=P.level;}}
+function gainXP(n){P.xp+=n;if(P.xp>=P.xpNext){P.xp-=P.xpNext;P.level++;P.xpNext=Math.floor(P.xpNext*1.5);P.maxhp+=20;P.hp=P.maxhp;P.maxmp+=10;P.atk+=3;floatText(hero.position,'⬆ 升級！','#ffd700');$('lvTxt').textContent=P.level;sfxLevel();}}
 function addCoins(n){P.coins+=n;$('coinsTxt').textContent=P.coins;}
 
 // ── class definitions ──
@@ -804,6 +804,7 @@ function startBreak(boss){
     $('qteBark').textContent=boss.def.name+' 使出招式「'+boss.def.move.join('')+'」！　點出招式的字來破招'+(boss.def.move.length>=5?'——字越多，傷害越高！':'');
   }else{                                     // 巨龍：全名
     qteChars=NAMES.boss.chars; qteDistract=NAMES.boss.distract;
+    screenShake(.35); sfxBreak(); if(boss)floatText(boss.mesh.position,'吼——！','#ff3300');   // 龍吼震屏
     $('qteBark').textContent='巨龍：「我乃 昆圖庫塔卡提考特蘇瓦西拉松！」　你：「是不是…昆特牌、提琴、烤蛋塔、蘇打、馬拉松？」';
   }
   $('qteOverlay').style.display='flex';
@@ -834,7 +835,7 @@ function showQteCell(){
 function onPickChar(ch){
   if(!qteActive) return;
   if(ch===qteChars[qteIdx]){
-    $('qteAnswered').textContent+=ch;
+    $('qteAnswered').textContent+=ch; sfxGold();
     const o=$('qteOverlay');o.classList.remove('gold');void o.offsetWidth;o.classList.add('gold');
     qteIdx++;
     if(qteIdx>=qteChars.length){ qteFinisher?finisherDone():breakSuccess(); }
@@ -842,6 +843,7 @@ function onPickChar(ch){
   }else{ qteFinisher?finisherFail():breakFail(); }
 }
 function breakSuccess(){
+  sfxBreak();
   const dmg=qteChars.length*CONFIG.damage.unitBreakDamage, b=qteBoss;
   const isTut=b&&b.def.type==='tutmob';
   $('qteBark').textContent=isTut?('破招！'+qteChars.length+' 字 × '+CONFIG.damage.unitBreakDamage+' ＝ '+dmg+' 傷害'):'破——！';
@@ -858,6 +860,7 @@ function breakFail(){
     $('qteBark').textContent='破招失敗～再試一次！'; if(b)b._invincible=false;
     qteIdx=0; $('qteAnswered').textContent=''; showQteCell(); return;
   }
+  sfxFail();
   $('qteBark').textContent='巨龍：「'+NAMES.barks[Math.floor(Math.random()*NAMES.barks.length)]+'」吞下一顆仙丹⋯';
   if(b){ b._invincible=false; b._enrage=CONFIG.boss.enrageDuration;
     b.maxhp=Math.floor(b.maxhp*CONFIG.fail.hpBloatMult);
@@ -901,6 +904,13 @@ function syncBossBar(b,bloat){
   const bb=$('bossBar'); bb.style.width=Math.min(560,300*(b.maxhp/CONFIG.boss.maxHp))+'px';
   $('bossFill').style.transform=`scaleX(${Math.max(0,b.hp/b.maxhp)})`;
   if(bloat){bb.classList.remove('bloat');void bb.offsetWidth;bb.classList.add('bloat');}
+}
+function dragonFireBreath(b){
+  const dx=hero.position.x-b.mesh.position.x, dz=hero.position.z-b.mesh.position.z, d=Math.hypot(dx,dz)||1;
+  const nx=dx/d, nz=dz/d;
+  for(let i=1;i<=9;i++){ const v=new THREE.Vector3(b.mesh.position.x+nx*i*1.7, .2, b.mesh.position.z+nz*i*1.7); spawnHitParticles(v, i%2?0xff5500:0xffaa00, 5); }
+  screenShake(.16); sfxBreak();
+  if(d<16 && P.dodgeTimer<=0){ const dmg=rand(16,26); P.hp-=dmg; floatText(hero.position,'-'+dmg+' 🔥','#ff5500'); screenFlash(); lastCombatTime=0; refreshHud(); if(P.hp<=0)gameOver(); }
 }
 function defeatCultBoss(b){
   b.alive=false; scene.remove(b.mesh); $('bossBar').style.display='none'; deathBurst(b.mesh.position);
@@ -1184,6 +1194,17 @@ function shootArrow(){
   arrows.push({mesh:am,dir:dir.clone(),life:2.5,dmg:Math.floor(P.atk*.9)});
 }
 
+// ── 音效 SFX（Web Audio 合成，與 BGM 並存）──
+let _actx=null;
+function initSfx(){ if(_actx)return; try{_actx=new (window.AudioContext||window.webkitAudioContext)();}catch(e){} }
+addEventListener('pointerdown',initSfx);
+function blip(f,dur,type='square',vol=.18,when=0){ if(!_actx)return; const o=_actx.createOscillator(),g=_actx.createGain();o.type=type;o.frequency.value=f;const t0=_actx.currentTime+when;g.gain.setValueAtTime(.0001,t0);g.gain.exponentialRampToValueAtTime(vol,t0+.008);g.gain.exponentialRampToValueAtTime(.0001,t0+dur);o.connect(g);g.connect(_actx.destination);o.start(t0);o.stop(t0+dur+.02); }
+function sfxHit(){ blip(170,.1,'square',.12); blip(90,.12,'sawtooth',.1); }
+function sfxGold(){ blip(880,.07,'sine',.16); blip(1318,.09,'sine',.13,.05); }
+function sfxBreak(){ blip(110,.5,'sawtooth',.22); blip(220,.3,'square',.15,.03); blip(440,.25,'square',.12,.06); }
+function sfxFail(){ blip(180,.35,'sawtooth',.16); blip(120,.45,'sawtooth',.15,.12); }
+function sfxLevel(){ [523,659,784,1047].forEach((f,i)=>blip(f,.16,'triangle',.14,i*.07)); }
+
 // ── combat ──
 let attackCD=0,heroLunge=0,freeze=0,comboN=0,comboT=0,skillCD=0,lastCombatTime=999;
 function playerAttack(){
@@ -1282,7 +1303,7 @@ function showUltCell(){
 function onUltPick(ch){
   if(!ultActive||ultPhase!=='pick')return;
   if(ch!==NAMES.heroTrue[ultIdx]){ ultChoke('字念錯了！'); return; }
-  $('ultAnswered').textContent+=ch; ultIdx++;
+  $('ultAnswered').textContent+=ch; sfxGold(); ultIdx++;
   const o=$('ultOverlay');o.classList.remove('gold');void o.offsetWidth;o.classList.add('gold');
   if(ultIdx>=NAMES.heroTrue.length){ ultUnleash(); return; }
   if(ultIdx%ULT.segLen===0) ultBreath(); else showUltCell();
@@ -1300,11 +1321,13 @@ function onBreathTap(){
   ultPhase='wait'; setTimeout(()=>{ if(ultActive) ultPick(); },350);
 }
 function ultChoke(msg){
+  sfxFail();
   ultActive=false; ultPhase=''; mode='play'; $('ultOverlay').style.display='none';
   ultCD=ULT.cooldown; P._choke=3;
   floatText(hero.position,'咳咳咳…'+msg+'缺氧窒息！','#b06ad8'); screenShake(.12); screenFlash();
 }
 function ultUnleash(){
+  sfxBreak();
   ultActive=false; ultPhase=''; mode='play'; ultCD=ULT.cooldown;
   const dmg=Math.round(ULT.base*NAMES.heroTrue.length*ultMult);
   const shown=ultMult>=8?99999:dmg;   // 全 Perfect → 萬劍歸宗 99999
@@ -1318,6 +1341,7 @@ function ultUnleash(){
   setTimeout(()=>$('ultOverlay').style.display='none',900);
 }
 function damageNPC(e,dmg){
+  sfxHit();
   // 魔教教主：普攻只造成微小 chip，真正輸出靠念名字破防
   if(e.def.type==='cultboss'){
     if(qteActive||e._invincible) return;
@@ -1812,6 +1836,11 @@ function animate(){
           if(e._engageTimer==null) e._engageTimer=CONFIG.boss.safetyCastInterval;
           e._engageTimer-=dt;
           if(e._engageTimer<=0){ startBreak(e); }
+          // 噴火攻擊（有預警可閃）
+          if(e._fireT==null)e._fireT=4;
+          e._fireT-=dt;
+          if(e._fireT<=0.9 && !e._firedTold){ e._firedTold=true; floatText(e.mesh.position,'巨龍張口⋯','#ffaa00'); }
+          if(e._fireT<=0){ e._fireT=5+Math.random()*2.5; e._firedTold=false; dragonFireBreath(e); }
         }
         if(e._enrage>0) e._enrage-=dt;
       }
