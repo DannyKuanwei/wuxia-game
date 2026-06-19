@@ -1047,8 +1047,8 @@ const NPC_DEFS=[
   {type:'bandit',  name:'山賊乙',  color:0x5a3a28,pos:[-8,24],   hp:65, atk:13,spd:3.3,range:2.0,cd:1.3,patrol:[[-8,18],[-8,34]],model:'models/bandit/walk.glb',mh:1.1},
   {type:'bandit',  name:'女飛賊',  color:0x33334a,pos:[18,30],   hp:55, atk:16,spd:4.2,range:2.0,cd:1.0,patrol:[[18,25],[18,38]],model:'models/bandit/walk.glb',mh:1.1},
   {type:'bandit',  name:'賊首',    color:0x8a2a1a,pos:[0,42],    hp:160,atk:24,spd:2.8,range:2.3,cd:1.5,patrol:[[0,36],[0,48]],model:'models/bandit/walk.glb',mh:1.25},
-  {type:'elder',   name:'掃地僧',  color:0xd0c0a0,pos:[-55,-2],  hp:999,atk:1, spd:0,  range:1.5,cd:5.0,patrol:null,dialogue:['施主，萬事以和為貴……','你這殺氣，老衲勸你放下屠刀。','江湖險惡，但心存善念，方為正道。']},
-  {type:'hermit',  name:'武林高手',color:0x3a3a3a,pos:[68,-12],  hp:220,atk:30,spd:3.8,range:2.4,cd:0.9,patrol:[[68,-6],[68,-22]]},
+  {type:'elder',   name:'掃地僧',  color:0xd0c0a0,pos:[-55,-2],  hp:999,atk:1, spd:0,  range:1.5,cd:5.0,patrol:null,model:'models/npc/monk.glb',mh:1.1,dialogue:['施主，萬事以和為貴……','你這殺氣，老衲勸你放下屠刀。','江湖險惡，但心存善念，方為正道。']},
+  {type:'hermit',  name:'武林高手',color:0x3a3a3a,pos:[68,-12],  hp:220,atk:30,spd:3.8,range:2.4,cd:0.9,patrol:[[68,-6],[68,-22]],model:'models/npc/master.glb',mh:1.25},
   {type:'cultboss',name:'巨龍',color:0x8a1a1a,pos:[0,72],    hp:CONFIG.boss.maxHp,atk:18,spd:1.8,range:3.4,cd:1.8,patrol:null,model:'models/dragon/dragon.glb',mh:3.6},
   {type:'civilian',name:'老翁',    color:0xb0a080,pos:[-50,6],   hp:35, atk:2, spd:1.4,range:1.5,cd:2.5,patrol:null,model:'models/villager/man.glb',mh:1.05,dialogue:['古寺清淨，少俠莫要喧嘩。','佛法無邊，回頭是岸哪……']},
 ];
@@ -1435,6 +1435,7 @@ const CLUES={
   '旅客':'我在江湖聽過：巨龍的弱點是牠的名字——念對就能破牠的防！',
   '孩童':'哥哥要去打龍嗎？牠的名字好長好長喔！',
   '老翁':'施主，唸對龍名，方能傷其分毫。',
+  '掃地僧':'老衲掃地百年⋯記住，唸對巨龍全名「昆圖庫塔卡提考特蘇瓦西拉松」，方能破其金身。名字越長，威力越大。',
 };
 const talkedNpcs=new Set();
 let activeQuest=null;
@@ -1537,7 +1538,7 @@ function interact(){
   for(const e of npcs){if(!e.alive||!e.def.dialogue)continue;const d=dist2(hero,e.mesh);if(d<bd){best=e;bd=d;}}
   if(best){
     if(best.def.name==='鐵匠老李'){ blacksmithTalk(); }
-    else if(activeQuest&&activeQuest.goal==='intel'&&best.def.type==='civilian'&&CLUES[best.def.name]){
+    else if(activeQuest&&activeQuest.goal==='intel'&&CLUES[best.def.name]){
       showDlg(best.def.name,CLUES[best.def.name]); updateQuestIntel(best.def.name);   // 打聽情報
     }
     else if(best.def.shop){$('shop').style.display='block';inDlg=true;}
