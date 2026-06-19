@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no"/>
-<title>武俠江湖・開放世界</title>
+<title>大俠崩吧</title>
 <style>
 html,body{margin:0;height:100%;overflow:hidden;background:#040d0a;font-family:"Microsoft JhengHei",system-ui,sans-serif;touch-action:none;-webkit-user-select:none;user-select:none}
 #app{position:fixed;inset:0}
@@ -161,9 +161,9 @@ body.touch #zoneName{font-size:17px;top:60px}
 
 <!-- 載入畫面 -->
 <div id="loadScreen">
-  <h1>武俠江湖</h1>
+  <h1>大俠崩吧</h1>
   <div id="lsBar"><div id="lsProg"></div></div>
-  <p id="lsTxt">正在載入江湖⋯</p>
+  <p id="lsTxt">很久很久以前，巨龍突然出現，帶走了公主⋯</p>
 </div>
 
 <!-- 職業選擇 -->
@@ -592,7 +592,7 @@ const NAMES={
   heroine:'米婭莫拉蘇娜丹妮謝莉紅',
   town:'蒙達魯克硫斯伯古比奇巴勒城',
   heroDisplay:'那個……達拉什麼翁的大俠',     // 名字存檔系統：NPC 永遠這樣叫主角
-  barks:['哼，連本座名諱都記不住？','哈哈哈！再說一次，孤的名字叫什麼？','本座名諱，豈是爾等記得住的？','越罵越有精神！'],
+  barks:['不對！是昆圖庫塔卡提考特蘇瓦西拉松！','連本座名諱都念不對？','哈哈哈，再說一次！','越罵越有精神！'],
 };
 let qteActive=false,qteBoss=null,qteIdx=0,qteCellTimer=0,qteCellMax=0,qteChars=null,qteFinisher=false;
 const _shuf=a=>{a=a.slice();for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;};
@@ -603,7 +603,7 @@ function startBreak(boss){
   qteActive=true; qteBoss=boss; qteFinisher=false; qteChars=NAMES.boss.chars; qteIdx=0; mode='qte';
   if(boss) boss._invincible=true;
   $('qteAnswered').textContent='';
-  $('qteBark').textContent='教主：「再說一次，孤的名字叫什麼——？」';
+  $('qteBark').textContent='巨龍：「我乃 昆圖庫塔卡提考特蘇瓦西拉松！」　你：「是不是…昆特牌、提琴、烤蛋塔、蘇打、馬拉松？」';
   $('qteOverlay').style.display='flex';
   showQteCell();
 }
@@ -662,14 +662,14 @@ function endQte(){
 }
 function syncBossBar(b,bloat){
   $('bossBar').style.display='block';
-  $('bossName').textContent='魔教教主・'+NAMES.boss.chars.join('');
+  $('bossName').textContent='巨龍・'+NAMES.boss.chars.join('');
   const bb=$('bossBar'); bb.style.width=Math.min(560,300*(b.maxhp/CONFIG.boss.maxHp))+'px';
   $('bossFill').style.transform=`scaleX(${Math.max(0,b.hp/b.maxhp)})`;
   if(bloat){bb.classList.remove('bloat');void bb.offsetWidth;bb.classList.add('bloat');}
 }
 function defeatCultBoss(b){
   b.alive=false; scene.remove(b.mesh); $('bossBar').style.display='none'; deathBurst(b.mesh.position);
-  floatText(b.mesh.position,'教主已伏誅！','#e8b84b');
+  floatText(b.mesh.position,'巨龍倒下了！','#e8b84b');
   setTimeout(()=>startFinisher(),1000);
 }
 function finisherDone(){
@@ -677,7 +677,12 @@ function finisherDone(){
   $('qteBark').textContent='在場眾人：「達拉……什麼？」（集體失憶）';
   setTimeout(()=>{ $('qteOverlay').style.display='none';
     $('goTitle').textContent='大俠崩吧・大功告成';
-    $('goText').innerHTML='你念對了全江湖沒人記得住的名字！<br>魔教教主已伏誅，「'+NAMES.heroDisplay+'」名震江湖。';
+    $('goText').innerHTML=
+      '你念對了全江湖沒人記得住的名字，戰勝了巨龍！<br>'+
+      '救出公主「'+NAMES.heroine+'」，<br>'+
+      '回到「'+NAMES.town+'」。<br>'+
+      '國王賜婚，從此幸福快樂⋯<br><br>'+
+      '多年後孩子出生——為避免麻煩，取名「王浩然」。';
     $('goScreen').style.display='flex';
   },1600);
 }
@@ -701,7 +706,7 @@ const NPC_DEFS=[
   {type:'bandit',  name:'賊首',    color:0x8a2a1a,pos:[0,42],    hp:160,atk:24,spd:2.8,range:2.3,cd:1.5,patrol:[[0,36],[0,48]],model:'models/bandit/walk.glb',mh:1.7},
   {type:'elder',   name:'掃地僧',  color:0xd0c0a0,pos:[-55,-2],  hp:999,atk:1, spd:0,  range:1.5,cd:5.0,patrol:null,dialogue:['施主，萬事以和為貴……','你這殺氣，老衲勸你放下屠刀。','江湖險惡，但心存善念，方為正道。']},
   {type:'hermit',  name:'武林高手',color:0x3a3a3a,pos:[68,-12],  hp:220,atk:30,spd:3.8,range:2.4,cd:0.9,patrol:[[68,-6],[68,-22]]},
-  {type:'cultboss',name:'魔教教主',color:0x8a1a1a,pos:[0,72],    hp:CONFIG.boss.maxHp,atk:18,spd:2.6,range:2.8,cd:1.6,patrol:null,model:'models/cultboss/walk.glb',mh:1.95},
+  {type:'cultboss',name:'巨龍',color:0x8a1a1a,pos:[0,72],    hp:CONFIG.boss.maxHp,atk:18,spd:2.6,range:2.8,cd:1.6,patrol:null,model:'models/cultboss/walk.glb',mh:1.95},
   {type:'civilian',name:'老翁',    color:0xb0a080,pos:[-50,6],   hp:35, atk:2, spd:1.4,range:1.5,cd:2.5,patrol:null,dialogue:['古寺清淨，少俠莫要喧嘩。','佛法無邊，回頭是岸哪……']},
 ];
 function mkNPC(color){
@@ -971,7 +976,7 @@ function refreshHud(){
   $('coinsTxt').textContent=P.coins;$('potCnt').textContent=P.potions;$('mpPotCnt').textContent=P.mmpotions;
   $('slot0').textContent=P.weapon==='bow'?'🏹':P.weapon==='sword2'?'🗡️':'⚔️';
 }
-const ZONES=[{name:'竹林・初境',x:0,z:0,r:32},{name:'北村・桃源',x:0,z:-52,r:26},{name:'東嶺・深山',x:68,z:-12,r:32},{name:'南境・匪巢',x:0,z:36,r:28},{name:'西寺・古剎',x:-55,z:2,r:22}];
+const ZONES=[{name:'竹林・初境',x:0,z:0,r:32},{name:'北村・桃源',x:0,z:-52,r:26},{name:'東嶺・深山',x:68,z:-12,r:32},{name:'南境・匪巢',x:0,z:36,r:28},{name:'巨龍山洞',x:0,z:72,r:18},{name:'西寺・古剎',x:-55,z:2,r:22}];
 let curZone='';
 function updateZone(){
   for(const z of ZONES){if(Math.hypot(hero.position.x-z.x,hero.position.z-z.z)<z.r){if(curZone!==z.name){curZone=z.name;const zn=$('zoneName');zn.textContent=z.name;zn.style.opacity=1;$('zoneTxt').textContent=z.name;setTimeout(()=>zn.style.opacity=0,2500);}return;}}
