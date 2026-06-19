@@ -918,7 +918,7 @@ const NPC_DEFS=[
   {type:'bandit',  name:'賊首',    color:0x8a2a1a,pos:[0,42],    hp:160,atk:24,spd:2.8,range:2.3,cd:1.5,patrol:[[0,36],[0,48]],model:'models/bandit/walk.glb',mh:1.7},
   {type:'elder',   name:'掃地僧',  color:0xd0c0a0,pos:[-55,-2],  hp:999,atk:1, spd:0,  range:1.5,cd:5.0,patrol:null,dialogue:['施主，萬事以和為貴……','你這殺氣，老衲勸你放下屠刀。','江湖險惡，但心存善念，方為正道。']},
   {type:'hermit',  name:'武林高手',color:0x3a3a3a,pos:[68,-12],  hp:220,atk:30,spd:3.8,range:2.4,cd:0.9,patrol:[[68,-6],[68,-22]]},
-  {type:'cultboss',name:'巨龍',color:0x8a1a1a,pos:[0,72],    hp:CONFIG.boss.maxHp,atk:18,spd:2.6,range:2.8,cd:1.6,patrol:null,model:'models/cultboss/walk.glb',mh:1.95},
+  {type:'cultboss',name:'巨龍',color:0x8a1a1a,pos:[0,72],    hp:CONFIG.boss.maxHp,atk:18,spd:1.8,range:3.4,cd:1.8,patrol:null,model:'models/dragon/dragon.glb',mh:3.6},
   {type:'civilian',name:'老翁',    color:0xb0a080,pos:[-50,6],   hp:35, atk:2, spd:1.4,range:1.5,cd:2.5,patrol:null,dialogue:['古寺清淨，少俠莫要喧嘩。','佛法無邊，回頭是岸哪……']},
 ];
 function mkNPC(color){
@@ -965,10 +965,10 @@ function setupNpcModel(npc){
     (npc.mesh.userData.placeholder||[]).forEach(m=>m.visible=false);  // 蓋掉方塊
     npc.mesh.add(model);
     npc.model=model;
-    npc.mixer=new THREE.AnimationMixer(model);
     npc.npcAnim=''; npc._lastPos=npc.mesh.position.clone();
-    // 模型自帶動畫就用自己的，否則共用大俠的 heroClips
+    // 有自帶動畫才建 mixer（人形）；靜態模型（龍）不建、保持靜態
     if(g.animations&&g.animations.length){
+      npc.mixer=new THREE.AnimationMixer(model);
       npc.clips={walk:g.animations[0]};
       g.animations.forEach((c,i)=>{npc.clips['a'+i]=c;});
     }
@@ -1652,6 +1652,8 @@ function animate(){
         e._lastPos.copy(e.mesh.position);
         playNpcAnim(e,moved?'walk':'idle');
       }
+      // 靜態巨龍：浮空+擺動，不要僵住
+      if(e.def.type==='cultboss'&&!e.mixer){ e.mesh.position.y=Math.abs(Math.sin(t*1.2))*0.25; if(e.model)e.model.rotation.z=Math.sin(t*0.9)*0.05; }
     }
     for(let i=arrows.length-1;i>=0;i--){
       const ar=arrows[i];ar.life-=dt;ar.mesh.position.addScaledVector(ar.dir,22*dt);
