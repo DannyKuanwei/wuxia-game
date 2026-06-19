@@ -132,6 +132,27 @@ body.touch #minimap{width:84px;height:84px;left:10px;top:10px;border-width:2px}
 body.touch #topright{right:14px;top:10px;font-size:11px;padding:5px 9px;line-height:1.5}
 body.touch #playerHud{left:10px;right:auto;top:102px;bottom:auto;min-width:126px;padding:6px 9px}
 body.touch #zoneName{font-size:17px;top:60px}
+
+/* ── 念名字破防 QTE ── */
+#bossBar{transition:width .45s cubic-bezier(.5,-0.4,.5,1.4)}
+#bossBar.bloat{animation:bossBloat .5s ease}
+@keyframes bossBloat{0%{filter:none}30%{filter:drop-shadow(0 0 12px #d8351f) saturate(1.6);transform:translateX(-50%) scaleY(1.5)}100%{filter:none}}
+#qteOverlay{position:fixed;inset:0;z-index:120;display:none;flex-direction:column;align-items:center;justify-content:center;gap:14px;
+  background:radial-gradient(ellipse at center,rgba(21,16,13,.55),rgba(21,16,13,.86));font-family:"KaiTi","標楷體","DFKai-SB","Noto Serif CJK TC",serif;padding:20px}
+#qteOverlay.gold{animation:qteGold .25s ease}
+@keyframes qteGold{0%{box-shadow:inset 0 0 0 rgba(232,184,75,0)}40%{box-shadow:inset 0 0 120px rgba(232,184,75,.55)}100%{box-shadow:inset 0 0 0 rgba(232,184,75,0)}}
+#qteBark{color:#ece0c8;font-size:19px;letter-spacing:2px;text-align:center;max-width:90vw;text-shadow:0 2px 10px #000;line-height:1.6}
+#qteAnswered{color:#e8b84b;font-size:34px;letter-spacing:6px;min-height:44px;font-weight:bold;text-shadow:0 0 16px rgba(232,184,75,.6)}
+#qteCast{width:min(420px,82vw);height:12px;background:rgba(0,0,0,.5);border:1px solid #d8351f;border-radius:7px;overflow:hidden}
+#qteCastFill{height:100%;width:100%;transform-origin:left;background:linear-gradient(90deg,#d8351f,#e8b84b);transition:transform .08s linear}
+#qteHint{color:#ece0c8;opacity:.8;font-size:14px;letter-spacing:2px}
+#qteCells{display:flex;flex-wrap:wrap;gap:12px;justify-content:center;max-width:96vw}
+.qcand{font-family:inherit;font-size:40px;width:84px;height:84px;border-radius:16px;cursor:pointer;
+  background:rgba(236,224,200,.95);color:#15100d;border:3px solid #6fae8f;box-shadow:0 4px 0 rgba(0,0,0,.3);
+  transition:transform .06s,background .1s;user-select:none}
+.qcand:hover{background:#fff}
+.qcand:active{transform:translateY(3px);box-shadow:0 1px 0 rgba(0,0,0,.3);background:#e8b84b}
+@media(max-width:520px){.qcand{font-size:32px;width:68px;height:68px}#qteAnswered{font-size:26px}}
 </style>
 </head>
 <body>
@@ -227,6 +248,15 @@ body.touch #zoneName{font-size:17px;top:60px}
 <div id="questPanel"><div class="qt">📜 當前任務</div><div class="qi" id="questTxt">—</div><div class="qd" id="questReward"></div></div>
 <div id="bossBar"><div class="bn" id="bossName">賊首</div><div class="bh"><span id="bossFill" style="transform:scaleX(1)"></span></div></div>
 <div id="skillCdRing"><svg viewBox="0 0 42 42"><circle cx="21" cy="21" r="19" id="cdCircle"/></svg></div>
+
+<!-- 念名字破防 QTE -->
+<div id="qteOverlay">
+  <div id="qteBark">教主：「再說一次，孤的名字叫什麼——？」</div>
+  <div id="qteAnswered"></div>
+  <div id="qteCast"><div id="qteCastFill"></div></div>
+  <div id="qteHint">點出教主的名字</div>
+  <div id="qteCells"></div>
+</div>
 <div id="regenDot">💚 恢復中</div>
 
 <!-- 手機觸控操作 -->
@@ -540,6 +570,115 @@ window._doStart=()=>{
   startNextQuest();
 };
 
+// ══════════ 《大俠崩吧》念名字破防 Boss 戰 ══════════
+// 所有可調數值集中於此
+const CONFIG={
+  boss:{ maxHp:1000, safetyCastInterval:9, enrageDuration:5 },   // 每 N 秒逼問一次
+  player:{ chipDamage:9 },                                       // 對教主的普攻很小（chip）
+  nameQTE:{ baseWindow:1.5, decayPerChar:0.07, minWindow:0.55 }, // 每格時間窗，越往後越快
+  damage:{ unitBreakDamage:30 },                                 // 破防：每念對一字的傷害
+  fail:{ healPercent:0.15, hpBloatMult:1.12 },                   // 念錯：回血 + 血條變長
+};
+// 名字與干擾字資料（程式不寫死任何字，全讀這份）
+const NAMES={
+  boss:{
+    chars:['昆','圖','庫','塔','卡','提','考','特','蘇','瓦','西','拉'],
+    distract:[['崑','混','坤','鯤'],['啚','途','徒','屠','塗'],['厙','酷','褲','廄'],['搭','墖','獺','撻'],
+      ['咖','咭','佧'],['堤','題','蹄','啼','緹'],['老','孝','烤','拷'],['持','待','忑','慝'],
+      ['穌','甦','酥','娜'],['凡','瓲','娜','丹'],['酉','晒','析','犀'],['垃','啦','喇','莉']],
+  },
+  heroTrue:['達','拉','崩','吧','斑','得','貝','迪','卜','多','比','魯','翁'],
+  heroDisplay:'那個……達拉什麼翁的大俠',     // 名字存檔系統：NPC 永遠這樣叫主角
+  barks:['哼，連本座名諱都記不住？','哈哈哈！再說一次，孤的名字叫什麼？','本座名諱，豈是爾等記得住的？','越罵越有精神！'],
+};
+let qteActive=false,qteBoss=null,qteIdx=0,qteCellTimer=0,qteCellMax=0,qteChars=null,qteFinisher=false;
+const _shuf=a=>{a=a.slice();for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;};
+const qteWindow=i=>Math.max(CONFIG.nameQTE.minWindow,CONFIG.nameQTE.baseWindow-i*CONFIG.nameQTE.decayPerChar);
+
+function startBreak(boss){
+  if(qteActive||mode!=='play') return;
+  qteActive=true; qteBoss=boss; qteFinisher=false; qteChars=NAMES.boss.chars; qteIdx=0; mode='qte';
+  if(boss) boss._invincible=true;
+  $('qteAnswered').textContent='';
+  $('qteBark').textContent='教主：「再說一次，孤的名字叫什麼——？」';
+  $('qteOverlay').style.display='flex';
+  showQteCell();
+}
+function startFinisher(){
+  qteActive=true; qteFinisher=true; qteChars=NAMES.heroTrue; qteIdx=0; qteBoss=null; mode='qte';
+  $('qteAnswered').textContent='';
+  $('qteBark').textContent='「行不更名，坐不改姓。老子就是——」';
+  $('qteOverlay').style.display='flex';
+  showQteCell();
+}
+function showQteCell(){
+  const i=qteIdx,correct=qteChars[i];
+  $('qteHint').textContent=qteFinisher?('報出名號（第 '+(i+1)+'/'+qteChars.length+' 字）'):('點出教主的名字（第 '+(i+1)+'/'+qteChars.length+' 字）');
+  let pool;
+  if(qteFinisher) pool=_shuf([...NAMES.boss.chars,...'米婭莫拉蘇娜丹妮謝莉紅'.split('')].filter(c=>c!==correct)).slice(0,4);
+  else pool=_shuf(NAMES.boss.distract[i]||[]).slice(0,4);
+  const wrap=$('qteCells'); wrap.innerHTML='';
+  _shuf([correct,...pool]).forEach(ch=>{
+    const b=document.createElement('button'); b.className='qcand'; b.textContent=ch;
+    b.onclick=()=>onPickChar(ch); wrap.appendChild(b);
+  });
+  qteCellMax=qteWindow(i); qteCellTimer=qteCellMax;
+}
+function onPickChar(ch){
+  if(!qteActive) return;
+  if(ch===qteChars[qteIdx]){
+    $('qteAnswered').textContent+=ch;
+    const o=$('qteOverlay');o.classList.remove('gold');void o.offsetWidth;o.classList.add('gold');
+    qteIdx++;
+    if(qteIdx>=qteChars.length){ qteFinisher?finisherDone():breakSuccess(); }
+    else showQteCell();
+  }else{ qteFinisher?finisherFail():breakFail(); }
+}
+function breakSuccess(){
+  const dmg=qteChars.length*CONFIG.damage.unitBreakDamage, b=qteBoss;
+  $('qteBark').textContent='破——！';
+  if(b){ b._invincible=false; b.hp-=dmg; drawBar(b.bar,Math.max(0,b.hp/b.maxhp));
+    floatText(b.mesh.position,'破！-'+dmg,'#e8b84b'); spawnHitParticles(b.mesh.position,0xffcc00,18); screenShake(.2); syncBossBar(b); }
+  endQte();
+  if(b&&b.hp<=0) defeatCultBoss(b);
+}
+function breakFail(){
+  const b=qteBoss;
+  $('qteBark').textContent='教主：「'+NAMES.barks[Math.floor(Math.random()*NAMES.barks.length)]+'」吞下一顆仙丹⋯';
+  if(b){ b._invincible=false; b._enrage=CONFIG.boss.enrageDuration;
+    b.maxhp=Math.floor(b.maxhp*CONFIG.fail.hpBloatMult);
+    b.hp=Math.min(b.maxhp,b.hp+Math.floor(b.maxhp*CONFIG.fail.healPercent));
+    drawBar(b.bar,b.hp/b.maxhp); floatText(b.mesh.position,'血條變長！','#d8351f'); screenFlash(); screenShake(.12); syncBossBar(b,true); }
+  endQte();
+}
+function finisherFail(){ $('qteBark').textContent='（念錯了…重來！）'; qteIdx=0; $('qteAnswered').textContent=''; showQteCell(); }
+function endQte(){
+  qteActive=false; mode='play';
+  if(qteBoss) qteBoss._engageTimer=CONFIG.boss.safetyCastInterval;
+  setTimeout(()=>{$('qteOverlay').style.display='none';},700);
+}
+function syncBossBar(b,bloat){
+  $('bossBar').style.display='block';
+  $('bossName').textContent='魔教教主・'+NAMES.boss.chars.join('');
+  const bb=$('bossBar'); bb.style.width=Math.min(560,300*(b.maxhp/CONFIG.boss.maxHp))+'px';
+  $('bossFill').style.transform=`scaleX(${Math.max(0,b.hp/b.maxhp)})`;
+  if(bloat){bb.classList.remove('bloat');void bb.offsetWidth;bb.classList.add('bloat');}
+}
+function defeatCultBoss(b){
+  b.alive=false; scene.remove(b.mesh); $('bossBar').style.display='none'; deathBurst(b.mesh.position);
+  floatText(b.mesh.position,'教主已伏誅！','#e8b84b');
+  setTimeout(()=>startFinisher(),1000);
+}
+function finisherDone(){
+  qteActive=false; mode='play';
+  $('qteBark').textContent='在場眾人：「達拉……什麼？」（集體失憶）';
+  setTimeout(()=>{ $('qteOverlay').style.display='none';
+    $('goTitle').textContent='大俠崩吧・大功告成';
+    $('goText').innerHTML='你念對了全江湖沒人記得住的名字！<br>魔教教主已伏誅，「'+NAMES.heroDisplay+'」名震江湖。';
+    $('goScreen').style.display='flex';
+  },1600);
+}
+
 // ── NPCs ──
 const NPC_DEFS=[
   {type:'civilian',name:'老農夫',  color:0xa07848,pos:[2,-47],   hp:40, atk:3, spd:1.8,range:1.6,cd:2.0,patrol:null},
@@ -559,6 +698,7 @@ const NPC_DEFS=[
   {type:'bandit',  name:'賊首',    color:0x8a2a1a,pos:[0,42],    hp:160,atk:24,spd:2.8,range:2.3,cd:1.5,patrol:[[0,36],[0,48]],model:'models/bandit/walk.glb',mh:1.7},
   {type:'elder',   name:'掃地僧',  color:0xd0c0a0,pos:[-55,-2],  hp:999,atk:1, spd:0,  range:1.5,cd:5.0,patrol:null,dialogue:['施主，萬事以和為貴……','你這殺氣，老衲勸你放下屠刀。','江湖險惡，但心存善念，方為正道。']},
   {type:'hermit',  name:'武林高手',color:0x3a3a3a,pos:[68,-12],  hp:220,atk:30,spd:3.8,range:2.4,cd:0.9,patrol:[[68,-6],[68,-22]]},
+  {type:'cultboss',name:'魔教教主',color:0x8a1a1a,pos:[0,72],    hp:CONFIG.boss.maxHp,atk:18,spd:2.6,range:2.8,cd:1.6,patrol:null,model:'models/cultboss/walk.glb',mh:1.95},
   {type:'civilian',name:'老翁',    color:0xb0a080,pos:[-50,6],   hp:35, atk:2, spd:1.4,range:1.5,cd:2.5,patrol:null,dialogue:['古寺清淨，少俠莫要喧嘩。','佛法無邊，回頭是岸哪……']},
 ];
 function mkNPC(color){
@@ -586,7 +726,8 @@ NPC_DEFS.forEach(def=>{
   const mesh=mkNPC(def.color);mesh.position.set(def.pos[0],0,def.pos[1]);
   const bar=mkBar();bar.position.set(0,2.7,0);bar.visible=false;mesh.add(bar);drawBar(bar,1);
   scene.add(mesh);
-  npcs.push({def,mesh,bar,hp:def.hp,maxhp:def.hp,alive:true,state:def.type==='bandit'||def.type==='hermit'?'patrol':(def.patrol?'patrol':def.spd===0?'idle':'wander'),patrolIdx:0,wanderTarget:null,wanderTimer:0,atkTimer:def.cd||1.4,flash:0,hostile:def.type==='bandit'||def.type==='hermit',loot:Math.max(3,Math.floor(def.hp/7))});
+  const hostileType=def.type==='bandit'||def.type==='hermit'||def.type==='cultboss';
+  npcs.push({def,mesh,bar,hp:def.hp,maxhp:def.hp,alive:true,state:hostileType?'patrol':(def.patrol?'patrol':def.spd===0?'idle':'wander'),patrolIdx:0,wanderTarget:null,wanderTimer:0,atkTimer:def.cd||1.4,flash:0,hostile:hostileType,loot:Math.max(3,Math.floor(def.hp/7))});
 });
 let kills=0;
 
@@ -768,6 +909,15 @@ function playerSkill(){
   }
 }
 function damageNPC(e,dmg){
+  // 魔教教主：普攻只造成微小 chip，真正輸出靠念名字破防
+  if(e.def.type==='cultboss'){
+    if(qteActive||e._invincible) return;
+    e.bar.visible=true; e.hp=Math.max(0,e.hp-CONFIG.player.chipDamage); e.flash=.1;
+    drawBar(e.bar,e.hp/e.maxhp); syncBossBar(e);
+    floatText(e.mesh.position,'-'+CONFIG.player.chipDamage,'#bbbbbb');
+    if(e.state!=='chase')e.state='chase'; if(e._engageTimer==null)e._engageTimer=CONFIG.boss.safetyCastInterval;
+    lastCombatTime=0; return;
+  }
   e.bar.visible=true;e.hp-=dmg;e.flash=.16;freeze=Math.max(freeze,.06);
   drawBar(e.bar,e.hp/e.maxhp);
   const isCrit=dmg>P.atk*1.8;
@@ -1040,6 +1190,12 @@ function animate(){
   for(const l of torches) l.intensity=isNight?(1.6+Math.sin(t*7.5)*.25):0;
   if(freeze>0){freeze-=dt;renderer.render(scene,camera);return;}
   t+=dt;
+  // 念名字 QTE 計時（每格越逼越快，超時=破防失敗）
+  if(qteActive){
+    qteCellTimer-=dt;
+    const cf=$('qteCastFill'); if(cf) cf.style.transform=`scaleX(${Math.max(0,qteCellTimer/qteCellMax)})`;
+    if(qteCellTimer<=0){ qteFinisher?finisherFail():breakFail(); }
+  }
   if(attackCD>0) attackCD-=dt;
   if(skillCD>0){skillCD-=dt;const pct=skillCD/8;$('cdCircle').style.strokeDashoffset=(pct*120).toFixed(1);}
   else $('cdCircle').style.strokeDashoffset=0;
@@ -1101,6 +1257,15 @@ function animate(){
       if(!e.alive) continue;const d=dist2(hero,e.mesh);
       if(e.def.type==='guard'){if(P.wanted>=3&&!e.hostile){e.hostile=true;e.state='chase';}if(P.wanted<3&&e.hostile&&e.hp===e.maxhp){e.hostile=false;e.state='patrol';}}
       if((e.def.type==='bandit'||e.def.type==='hermit')&&d<20&&e.state==='patrol') e.state='chase';
+      if(e.def.type==='cultboss'){
+        if(d<26&&e.state==='patrol') e.state='chase';
+        if(e.state==='chase'&&!qteActive){               // 接戰後計時逼問
+          if(e._engageTimer==null) e._engageTimer=CONFIG.boss.safetyCastInterval;
+          e._engageTimer-=dt;
+          if(e._engageTimer<=0){ startBreak(e); }
+        }
+        if(e._enrage>0) e._enrage-=dt;
+      }
       if(e.def.type==='civilian'&&e.hostile&&e.state!=='flee') e.state='flee';
       if(e.state==='patrol'&&e.def.patrol){
         const wp=e.def.patrol[e.patrolIdx],pdx=wp[0]-e.mesh.position.x,pdz=wp[1]-e.mesh.position.z,pd=Math.hypot(pdx,pdz);
