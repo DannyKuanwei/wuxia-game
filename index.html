@@ -136,6 +136,11 @@ body.touch #topright{right:14px;top:10px;font-size:11px;padding:5px 9px;line-hei
 body.touch #playerHud{left:10px;right:auto;top:102px;bottom:auto;min-width:126px;padding:6px 9px}
 body.touch #zoneName{font-size:17px;top:60px}
 
+/* ── 對話頭像 ── */
+.cardhead{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+.avatar{width:58px;height:58px;border-radius:50%;object-fit:cover;border:2px solid #b89a5a;background:#fff8ea;flex:0 0 auto;box-shadow:0 2px 8px rgba(0,0,0,.35)}
+#dlgAvatar{width:52px;height:52px;border:2px solid #6ec99a;background:#0c1a12}
+
 /* ── 開場劇情 ── */
 #introOverlay{position:fixed;inset:0;z-index:210;display:none;align-items:flex-end;justify-content:center;
   background:linear-gradient(transparent 40%,rgba(21,16,13,.55));padding:0 0 7vh;cursor:pointer;
@@ -315,7 +320,7 @@ body.touch #ultBtn{right:16px;bottom:270px}
 <div id="interactPrompt"></div>
 <div id="zoneName"></div>
 <div id="dialogue" style="display:none">
-  <div class="dn" id="dlgName"></div>
+  <div class="cardhead"><img id="dlgAvatar" class="avatar" style="display:none"><div class="dn" id="dlgName"></div></div>
   <div class="dt" id="dlgText"></div>
   <div class="dc">[ E / Enter 繼續 ]</div>
 </div>
@@ -337,7 +342,7 @@ body.touch #ultBtn{right:16px;bottom:270px}
 <div id="introOverlay">
   <div id="introSkip">跳過 ▶▶</div>
   <div id="introCard">
-    <div id="introName"></div>
+    <div class="cardhead"><img id="introAvatar" class="avatar" style="display:none"><div id="introName"></div></div>
     <div id="introText"></div>
     <div id="introNext">點擊繼續 ▶</div>
   </div>
@@ -346,7 +351,7 @@ body.touch #ultBtn{right:16px;bottom:270px}
 <!-- 二選一對話（鐵匠刻字等支線）-->
 <div id="choiceOverlay">
   <div id="choiceCard">
-    <div id="choiceName"></div>
+    <div class="cardhead"><img id="choiceAvatar" class="avatar" style="display:none"><div id="choiceName"></div></div>
     <div id="choiceText"></div>
     <div id="choiceBtns"></div>
   </div>
@@ -914,7 +919,7 @@ function nextCard(){
   if(!cardSteps) return;
   if(!cardSteps.length){ const cb=cardOnEnd; cardSteps=null; cardOnEnd=null; $('introOverlay').style.display='none'; if(cb)cb(); return; }
   const s=cardSteps.shift();
-  $('introName').textContent=s[0]; $('introText').textContent=s[1]; $('introOverlay').style.display='flex';
+  setAvatar('introAvatar',s[0]); $('introName').textContent=s[0]; $('introText').textContent=s[1]; $('introOverlay').style.display='flex';
 }
 // 救公主 → 結局 → 自動接續集，全程對話框
 function rescuePrincess(){
@@ -1005,7 +1010,7 @@ function nextIntro(){
   if(s.qte){ $('introOverlay').style.display='none';
     startReportName('國王：「你叫什麼名字？」——一格一格點出你的名號！',()=>{mode='charCreate';nextIntro();});
     return; }
-  $('introName').textContent=s[0]; $('introText').textContent=s[1];
+  setAvatar('introAvatar',s[0]); $('introName').textContent=s[0]; $('introText').textContent=s[1];
   $('introOverlay').style.display='flex';
 }
 function endIntro(){
@@ -1467,7 +1472,27 @@ function openChest(chest){
 
 // ── dialogue / shop ──
 let inDlg=false;
-function showDlg(name,text){$('dlgName').textContent=name;$('dlgText').textContent=text;$('dialogue').style.display='block';inDlg=true;}
+function portraitFor(n){
+  if(!n||/旁白/.test(n))return null;
+  if(/綠龍/.test(n))return 'greendragon';
+  if(/龍/.test(n))return 'dragon';
+  if(/少年|二代目|那個誰|勇者/.test(n))return 'hero';
+  if(/村長/.test(n))return 'chief';
+  if(/國王|陛下|皇帝/.test(n))return 'king';
+  if(/郡主/.test(n))return 'noble';
+  if(/公主/.test(n))return 'princess';
+  if(/米婭/.test(n))return 'mom';
+  if(/鐵匠|老李/.test(n))return 'smith';
+  if(/藥婆/.test(n))return 'herb';
+  if(/掃地僧|高人|前輩/.test(n))return 'monk';
+  if(/書記/.test(n))return 'clerk';
+  if(/孩童/.test(n))return 'child';
+  if(/村婦/.test(n))return 'woman';
+  if(/農夫|旅客|樵夫|老翁|大叔/.test(n))return 'man';
+  return null;
+}
+function setAvatar(id,name){const el=$(id);if(!el)return;const k=portraitFor(name);if(k){el.src='portraits/'+k+'.png';el.style.display='';}else{el.style.display='none';}}
+function showDlg(name,text){setAvatar('dlgAvatar',name);$('dlgName').textContent=name;$('dlgText').textContent=text;$('dialogue').style.display='block';inDlg=true;}
 function closeDlg(){$('dialogue').style.display='none';inDlg=false;}
 window.closeShop=()=>{$('shop').style.display='none';inDlg=false;};
 window.buyItem=id=>{
@@ -1498,6 +1523,7 @@ function interact(){
 // ── 二選一對話 + 鐵匠刻字支線 ──
 function showChoice(name,html,options){
   inDlg=true;
+  setAvatar('choiceAvatar',name);
   $('choiceName').textContent=name; $('choiceText').innerHTML=html;
   const wrap=$('choiceBtns'); wrap.innerHTML='';
   options.forEach(o=>{const b=document.createElement('button');b.className='choiceBtn';b.textContent=o.label;
