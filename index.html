@@ -717,6 +717,7 @@ const NAMES={
 let qteActive=false,qteBoss=null,qteIdx=0,qteCellTimer=0,qteCellMax=0,qteChars=null,qteFinisher=false,qteOnDone=null,qteDistract=null;
 // 教學關小怪招式的通用干擾字池
 const TUT_DISTRACT='刀劍拳掌腿斬劈刺踢打砍削挑撩崩轟爆旋飛天外仙橫豎錘鞭爪'.split('');
+let bossFailCount=0;   // 打巨龍破防連續失敗次數（連錯3次給撤退台階）
 const _shuf=a=>{a=a.slice();for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;};
 const qteWindow=i=>Math.max(CONFIG.nameQTE.minWindow,CONFIG.nameQTE.baseWindow-i*CONFIG.nameQTE.decayPerChar);
 
@@ -774,6 +775,7 @@ function breakSuccess(){
   if(b){ b._invincible=false; b.hp-=dmg; drawBar(b.bar,Math.max(0,b.hp/b.maxhp));
     floatText(b.mesh.position,'破！-'+dmg,'#e8b84b'); spawnHitParticles(b.mesh.position,0xffcc00,18); screenShake(.2);
     if(!isTut) syncBossBar(b); }
+  bossFailCount=0;
   endQte();
   if(b&&b.hp<=0){ b.def.type==='cultboss'?defeatCultBoss(b):killNPC(b); }
 }
@@ -788,7 +790,20 @@ function breakFail(){
     b.maxhp=Math.floor(b.maxhp*CONFIG.fail.hpBloatMult);
     b.hp=Math.min(b.maxhp,b.hp+Math.floor(b.maxhp*CONFIG.fail.healPercent));
     drawBar(b.bar,b.hp/b.maxhp); floatText(b.mesh.position,'血條變長！','#d8351f'); screenFlash(); screenShake(.12); syncBossBar(b,true); }
+  bossFailCount++;
   endQte();
+  if(bossFailCount>=3 && b){      // 連錯三次→給撤退台階
+    setTimeout(()=>{ showChoice('少年','（被巨龍的名字繞到頭暈）這⋯這誰記得住啊！！',[
+      {label:'再戰巨龍！（繼續挑戰）',fn:null},
+      {label:'⋯我要回家關開水！（撤退）',fn:()=>bossRetreat(b)},
+    ]); },750);
+  }
+}
+function bossRetreat(b){
+  if(b){ b.state='patrol'; b._engageTimer=null; }
+  hero.position.set(0,0,0); hero.rotation.y=Math.PI;
+  $('bossBar').style.display='none'; bossFailCount=0;
+  floatText(hero.position,'（腳底抹油～先回家關開水！）','#8fe6b0');
 }
 function finisherFail(){
   introFails++;
