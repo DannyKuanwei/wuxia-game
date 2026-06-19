@@ -397,7 +397,7 @@ for(const[tx,tz]of[[-6,-43],[6,-43],[-6,-53],[6,-53],[0,-45],[-12,-59],[12,-59],
 // ── hero 3D 模型 + 動畫 ──
 let hero=new THREE.Group(); scene.add(hero);
 let heroModel=null,heroMixer=null;
-const heroClips={};                       // name -> AnimationClip
+let heroClips={};                         // name -> AnimationClip（依職業重載）
 let activeAction=null,activeName='';
 let heroAnimLock=false,heroAnimLockT=0;    // 攻擊/絕招期間鎖住移動動畫
 const HERO_FACING_OFFSET=0;                 // 模型朝向修正
@@ -437,50 +437,55 @@ function heroPlayOnce(name,dur){
   heroAnimLock=true; heroAnimLockT=dur;
 }
 
-// 載入本體（用 walk.glb，含蒙皮網格 + 走路片段）
-gltfLoader.load('models/daxia/walk.glb',g=>{
-  heroModel=g.scene;
-  const bx=new THREE.Box3().setFromObject(heroModel),sz=new THREE.Vector3();bx.getSize(sz);
-  const s=HERO_HEIGHT/(sz.y||1); heroModel.scale.setScalar(s);
-  const bx2=new THREE.Box3().setFromObject(heroModel);
-  heroModel.position.y=-bx2.min.y;          // 腳踩在地面
-  heroModel.rotation.y=HERO_FACING_OFFSET;
-  heroModel.traverse(o=>{if(o.isMesh){o.castShadow=true;o.frustumCulled=false;}});
-  hero.add(heroModel);
-  heroMixer=new THREE.AnimationMixer(heroModel);
-  if(g.animations[0]) heroClips.walk=g.animations[0];
-  // 其餘動畫（骨架相同，片段可共用）
-  // 普攻 ↔ 大招 動作對調：attack 用旋轉斬，skill 用三連擊
-  [['run','models/daxia/run.glb'],['attack','models/daxia/skill.glb'],['skill','models/daxia/attack.glb']]
-    .forEach(([nm,url])=>gltfLoader.load(url,gg=>{if(gg.animations[0])heroClips[nm]=gg.animations[0];}));
-  playAnim('idle');
-  // ── 掛武器/盾牌 ──
-  const bones={};
-  heroModel.traverse(o=>{if(o.isBone)bones[o.name]=o;});
+// ── 依職業載入主角模型 ──
+// 大俠(knight)=Meshy生成、無內建武器→掛劍+完整動畫；其餘職業=圖生3D、武器已內建在模型
+const HERO_MODELS={
+  knight:  {model:'models/daxia/walk.glb', mh:1.1, anims:[['run','models/daxia/run.glb'],['attack','models/daxia/skill.glb'],['skill','models/daxia/attack.glb']], weapon:true},
+  sword:   {model:'models/sword/walk.glb',    mh:1.15},
+  assassin:{model:'models/assassin/walk.glb', mh:1.1},
+  healer:  {model:'models/healer/walk.glb',   mh:1.1},
+  archer:  {model:'models/archer/walk.glb',   mh:1.15},
+};
+function attachHeroWeapon(boneName,url,cfg,hideHandName){
+  const bones={}; heroModel.traverse(o=>{if(o.isBone)bones[o.name]=o;});
   heroModel.updateWorldMatrix(true,true);
-  function attachWeapon(boneName,url,cfg,hideHandName){
-    const bone=bones[boneName]; if(!bone||!url)return;
-    if(hideHandName&&bones[hideHandName]) bones[hideHandName].scale.setScalar(0.001); // 把手縮到看不見
-    // 補償群組：抵銷骨架本身的縮放，群組內就能用接近世界單位調整
-    const bs=new THREE.Vector3();bone.matrixWorld.decompose(new THREE.Vector3(),new THREE.Quaternion(),bs);
-    const holder=new THREE.Group();holder.scale.setScalar(1/(bs.x||1));bone.add(holder);
-    gltfLoader.load(url,gg=>{
-      const w=gg.scene;
-      w.traverse(o=>{if(o.isMesh)o.castShadow=true;});
-      // 若指定 grip，把武器原點移到握把端（pos=0 即握在手上、刀身往外伸）
-      if(cfg.grip) w.position.set(-cfg.grip[0],-cfg.grip[1],-cfg.grip[2]);
-      const pivot=new THREE.Group();
-      pivot.scale.setScalar(cfg.scale);
-      pivot.rotation.set(cfg.rot[0],cfg.rot[1],cfg.rot[2]);
-      pivot.position.set(cfg.pos[0],cfg.pos[1],cfg.pos[2]);
-      pivot.add(w);
-      holder.add(pivot);
-      hero.userData[boneName+'_item']=pivot;   // 之後換武器可取用
-    },undefined,e=>console.warn('weapon load failed',url,e));
-  }
-  attachWeapon('RightHand','models/daxia/sword.glb',SWORD,null);            // 劍：握在右手
-  // 盾牌已移除
-},undefined,e=>console.warn('hero model load failed',e));
+  const bone=bones[boneName]; if(!bone||!url) return;
+  if(hideHandName&&bones[hideHandName]) bones[hideHandName].scale.setScalar(0.001);
+  const bs=new THREE.Vector3();bone.matrixWorld.decompose(new THREE.Vector3(),new THREE.Quaternion(),bs);
+  const holder=new THREE.Group();holder.scale.setScalar(1/(bs.x||1));bone.add(holder);
+  gltfLoader.load(url,gg=>{
+    const w=gg.scene; w.traverse(o=>{if(o.isMesh)o.castShadow=true;});
+    if(cfg.grip) w.position.set(-cfg.grip[0],-cfg.grip[1],-cfg.grip[2]);
+    const pivot=new THREE.Group();
+    pivot.scale.setScalar(cfg.scale);
+    pivot.rotation.set(cfg.rot[0],cfg.rot[1],cfg.rot[2]);
+    pivot.position.set(cfg.pos[0],cfg.pos[1],cfg.pos[2]);
+    pivot.add(w); holder.add(pivot);
+  },undefined,e=>console.warn('weapon load failed',url,e));
+}
+function loadHeroModel(cls){
+  const cfg=HERO_MODELS[cls]||HERO_MODELS.knight;
+  if(heroModel){hero.remove(heroModel);heroModel=null;}
+  heroClips={}; activeAction=null; activeName=''; heroMixer=null; heroAnimLock=false;
+  gltfLoader.load(cfg.model,g=>{
+    heroModel=g.scene;
+    const bx=new THREE.Box3().setFromObject(heroModel),sz=new THREE.Vector3();bx.getSize(sz);
+    heroModel.scale.setScalar((cfg.mh||HERO_HEIGHT)/(sz.y||1));
+    const bx2=new THREE.Box3().setFromObject(heroModel);
+    heroModel.position.y=-bx2.min.y;
+    heroModel.rotation.y=HERO_FACING_OFFSET;
+    heroModel.traverse(o=>{if(o.isMesh){o.castShadow=true;o.frustumCulled=false;}});
+    hero.add(heroModel);
+    heroMixer=new THREE.AnimationMixer(heroModel);
+    if(g.animations[0]) heroClips.walk=g.animations[0];   // 模型自帶走路
+    (cfg.anims||[]).forEach(([nm,url])=>gltfLoader.load(url,gg=>{if(gg.animations[0])heroClips[nm]=gg.animations[0];}));
+    playAnim('idle');
+    if(cfg.weapon) attachHeroWeapon('RightHand','models/daxia/sword.glb',SWORD,null);
+  },undefined,e=>{
+    console.warn('hero model load failed',cfg.model,'→ 回退大俠',e);
+    if(cls!=='knight') loadHeroModel('knight');   // 模型未就緒時用大俠頂著
+  });
+}
 
 // ── player stats ──
 const P={
@@ -528,6 +533,7 @@ window._doStart=()=>{
   _SPRINT=_SPEED*1.55;
   $('heroName').textContent='❤ 少俠（'+{sword:'劍士',assassin:'刺客',knight:'大俠',healer:'藥師',archer:'弓手'}[chosenClass]+')';
   $('charCreate').style.display='none';
+  loadHeroModel(chosenClass);   // 依職業載入對應 3D 模型
   hero.rotation.y=Math.PI;   // 預設面向地圖前方（背對鏡頭）
   showHUD(); mode='play'; refreshHud();
   floatText(hero.position,'踏入江湖！','#ffd700');
