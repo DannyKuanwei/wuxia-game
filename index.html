@@ -579,7 +579,7 @@ fence(-20,-40,-20,-58);fence(20,-40,20,-58);fence(-20,-58,-8,-64);fence(20,-58,8
 function rock(x,z,s,col){const m=new THREE.Mesh(new THREE.DodecahedronGeometry(s,0),new THREE.MeshStandardMaterial({color:col||0x453f38,roughness:1,flatShading:true}));m.position.set(x,s*.4,z);m.rotation.set(Math.random()*3,Math.random()*3,Math.random()*3);m.castShadow=true;scene.add(m);}
 function darkPeak(x,z,h,r){const m=new THREE.Mesh(new THREE.ConeGeometry(r,h,7),new THREE.MeshStandardMaterial({color:0x35302a,roughness:1,flatShading:true}));m.position.set(x,h/2,z);m.castShadow=true;scene.add(m);}
 (function dragonLair(){
-  const cz=80;
+  const cz=92;
   for(let i=0;i<9;i++){const a=i/8*Math.PI;darkPeak(Math.cos(a)*-18+0, cz+Math.sin(a)*8+2, 16+Math.random()*12, 7+Math.random()*5);}
   // 山體
   const mound=new THREE.Mesh(new THREE.SphereGeometry(12,18,12,0,Math.PI*2,0,Math.PI/2),new THREE.MeshStandardMaterial({color:0x3a352e,roughness:1,flatShading:true}));
