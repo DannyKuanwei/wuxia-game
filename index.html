@@ -147,6 +147,27 @@ body.touch #zoneName{font-size:17px;top:60px}
 #introSkip{position:absolute;top:16px;right:16px;color:#ece0c8;font-size:13px;background:rgba(0,0,0,.45);
   padding:6px 13px;border-radius:999px;cursor:pointer;letter-spacing:1px}
 
+/* ── 物理遮擋：主角名字封條 ── */
+#nameBanner{position:fixed;top:62px;left:0;right:0;z-index:92;pointer-events:none;text-align:center;overflow:visible;white-space:nowrap}
+#nameBanner span{display:inline-block;background:linear-gradient(180deg,rgba(216,53,31,.62),rgba(140,20,10,.62));
+  color:#fff7e8;font-family:"KaiTi","標楷體","DFKai-SB",serif;font-weight:bold;font-size:22px;letter-spacing:5px;
+  padding:7px 34px;border-top:2px solid rgba(255,220,120,.6);border-bottom:2px solid rgba(255,220,120,.6);
+  box-shadow:0 4px 16px rgba(0,0,0,.4);transform:rotate(-1.4deg);animation:nameDrift 6s ease-in-out infinite}
+@keyframes nameDrift{0%,100%{transform:translateX(-14px) rotate(-1.4deg)}50%{transform:translateX(14px) rotate(-1.4deg)}}
+@media(max-width:520px){#nameBanner span{font-size:17px;letter-spacing:3px;padding:6px 18px}}
+
+/* ── 朝廷通緝令 ── */
+#wantedOverlay{position:fixed;inset:0;z-index:135;display:none;align-items:center;justify-content:center;
+  background:rgba(21,16,13,.7);padding:18px;font-family:"KaiTi","標楷體","DFKai-SB",serif}
+#wantedCard{background:#ece0c8;color:#15100d;border:2px solid #b89a5a;border-radius:14px;max-width:560px;width:94vw;padding:18px 20px;box-shadow:0 10px 44px rgba(0,0,0,.55)}
+.wtitle{color:#d8351f;font-size:20px;font-weight:bold;letter-spacing:3px;text-align:center;margin-bottom:10px}
+.wtext{font-size:15px;line-height:1.8;margin-bottom:12px}
+#wantedPosters{display:flex;gap:6px;overflow-x:auto;padding:6px 2px 12px}
+.wposter{flex:0 0 auto;width:46px;background:#fff8ea;border:1.5px solid #b04030;border-radius:5px;text-align:center;padding:4px 0;box-shadow:0 2px 5px rgba(0,0,0,.25)}
+.wp-h{color:#d8351f;font-size:11px;font-weight:bold;border-bottom:1px solid #d8a;margin-bottom:3px}
+.wp-face{font-size:20px;opacity:.5}
+.wp-n{font-size:22px;font-weight:bold;color:#15100d}
+
 /* ── 二選一對話 + 成就 ── */
 #choiceOverlay{position:fixed;inset:0;z-index:130;display:none;align-items:center;justify-content:center;
   background:rgba(21,16,13,.6);padding:18px;font-family:"KaiTi","標楷體","DFKai-SB","Noto Serif CJK TC",serif}
@@ -300,6 +321,17 @@ body.touch #zoneName{font-size:17px;top:60px}
 </div>
 <!-- 隱藏成就橫幅 -->
 <div id="achv"></div>
+<!-- 物理遮擋：主角超長名字封條，橫切螢幕 -->
+<div id="nameBanner" style="display:none"><span></span></div>
+<!-- 朝廷通緝令 -->
+<div id="wantedOverlay">
+  <div id="wantedCard">
+    <div class="wtitle">📜 朝廷通緝令</div>
+    <div class="wtext">師爺：「大人，這懸賞令一張紙只寫得下他的名字，根本沒地方畫長相啊！」<br>縣太爺：「那就——多貼幾張！」</div>
+    <div id="wantedPosters"></div>
+    <button class="choiceBtn" id="wantedClose">（無奈地撕下一張⋯）</button>
+  </div>
+</div>
 
 <!-- 念名字破防 QTE -->
 <div id="qteOverlay">
@@ -584,7 +616,7 @@ const P={
   comboMult:2.1,blockMult:.28,
 };
 const WANTED_TXT=['☆☆☆☆☆','★☆☆☆☆','★★☆☆☆','★★★☆☆','★★★★☆','★★★★★'];
-function setWanted(n){P.wanted=clamp(n,0,5);P.wantedCd=35;$('wanted').textContent=WANTED_TXT[P.wanted];$('wanted').style.color=P.wanted>=4?'#ff4422':P.wanted>=2?'#ff9900':P.wanted>=1?'#ffd700':'rgba(255,215,0,.25)';}
+function setWanted(n){P.wanted=clamp(n,0,5);P.wantedCd=35;$('wanted').textContent=WANTED_TXT[P.wanted];$('wanted').style.color=P.wanted>=4?'#ff4422':P.wanted>=2?'#ff9900':P.wanted>=1?'#ffd700':'rgba(255,215,0,.25)';if(P.wanted>=1)showWantedPoster();}
 function gainXP(n){P.xp+=n;if(P.xp>=P.xpNext){P.xp-=P.xpNext;P.level++;P.xpNext=Math.floor(P.xpNext*1.5);P.maxhp+=20;P.hp=P.maxhp;P.maxmp+=10;P.atk+=3;floatText(hero.position,'⬆ 升級！','#ffd700');$('lvTxt').textContent=P.level;}}
 function addCoins(n){P.coins+=n;$('coinsTxt').textContent=P.coins;}
 
@@ -617,7 +649,7 @@ window._doStart=()=>{
   $('charCreate').style.display='none';
   loadHeroModel(chosenClass);   // 依職業載入對應 3D 模型
   hero.rotation.y=Math.PI;   // 預設面向地圖前方（背對鏡頭）
-  showHUD(); mode='play'; refreshHud();
+  showHUD(); mode='play'; refreshHud(); updateNameBanner();
   floatText(hero.position,'出發！往南方巨龍山洞救公主！','#ffd700');
   startNextQuest();
 };
@@ -810,9 +842,9 @@ const NPC_DEFS=[
   {type:'guard',   name:'精銳衛士',color:0x203050,pos:[5,-36],   hp:130,atk:20,spd:3.5,range:2.1,cd:1.1,patrol:[[5,-33],[5,-44]]},
   {type:'merchant',name:'鐵匠老李',color:0x705030,pos:[4,-41],   hp:60, atk:5, spd:0,  range:1.5,cd:2.0,patrol:null,dialogue:['老夫打鐵三十年，賣的都是好貨！','少俠要甚麼兵器？快說！'],shop:true},
   {type:'merchant',name:'藥婆',    color:0xc08090,pos:[-4,-41],  hp:50, atk:3, spd:0,  range:1.5,cd:2.5,patrol:null,dialogue:['傷藥靈丹，應有盡有！','少俠，要補補身子嗎？'],shop:true},
-  {type:'tutmob',  name:'山賊小弟',color:0x6a5030,pos:[3,8],     hp:50, atk:0, spd:0,range:1.6,cd:99,patrol:null,move:['橫','斬'],model:'models/bandit/walk.glb',mh:1.15},
-  {type:'tutmob',  name:'山賊嘍囉',color:0x6a5030,pos:[-4,12],   hp:80, atk:0, spd:0,range:1.6,cd:99,patrol:null,move:['迴','旋','踢'],model:'models/bandit/walk.glb',mh:1.15},
-  {type:'tutmob',  name:'山賊頭子',color:0x6a3a20,pos:[2,16],    hp:140,atk:0, spd:0,range:1.6,cd:99,patrol:null,move:['天','外','飛','仙','腿'],model:'models/bandit/walk.glb',mh:1.3},
+  {type:'tutmob',  name:'山賊小弟',color:0x6a5030,pos:[3,13],    hp:50, atk:0, spd:0,range:1.6,cd:99,patrol:null,move:['橫','斬'],model:'models/bandit/walk.glb',mh:1.15},
+  {type:'tutmob',  name:'山賊嘍囉',color:0x6a5030,pos:[-4,17],   hp:80, atk:0, spd:0,range:1.6,cd:99,patrol:null,move:['迴','旋','踢'],model:'models/bandit/walk.glb',mh:1.15},
+  {type:'tutmob',  name:'山賊頭子',color:0x6a3a20,pos:[3,21],    hp:140,atk:0, spd:0,range:1.6,cd:99,patrol:null,move:['天','外','飛','仙','腿'],model:'models/bandit/walk.glb',mh:1.3},
   {type:'bandit',  name:'山賊甲',  color:0x6a3a20,pos:[8,22],    hp:65, atk:13,spd:3.3,range:2.0,cd:1.3,patrol:[[8,18],[8,32]],model:'models/bandit/walk.glb',mh:1.25},
   {type:'bandit',  name:'山賊乙',  color:0x5a3a28,pos:[-8,24],   hp:65, atk:13,spd:3.3,range:2.0,cd:1.3,patrol:[[-8,18],[-8,34]],model:'models/bandit/walk.glb',mh:1.25},
   {type:'bandit',  name:'女飛賊',  color:0x33334a,pos:[18,30],   hp:55, atk:16,spd:4.2,range:2.0,cd:1.0,patrol:[[18,25],[18,38]],model:'models/bandit/walk.glb',mh:1.2},
@@ -1221,18 +1253,34 @@ function engraveCompromise(){
   P.maxhp=Math.max(1,Math.floor(P.maxhp*.01)); P.hp=P.maxhp;
   P.atk=Math.max(1,Math.floor(P.atk*.01)); P.skillDmg=Math.max(1,Math.floor(P.skillDmg*.01));
   P.maxmp=Math.max(1,Math.floor(P.maxmp*.01)); P.mp=P.maxmp;
-  P.compromised=true; $('heroName').textContent='❤ 王浩然'; refreshHud();
+  P.compromised=true; $('heroName').textContent='❤ 王浩然'; refreshHud(); updateNameBanner();
   showChoice('旁白','劍身刻滿了天星⋯但你彷彿失去了靈魂。<br>（你改名為「王浩然」，全屬性永久 -99%）<br>⋯想反悔的話，再來找鐵匠。',[{label:'⋯⋯（默默離開）',fn:null}]);
 }
 function engraveRestore(){
   if(P._orig){P.maxhp=P._orig.maxhp;P.atk=P._orig.atk;P.skillDmg=P._orig.skillDmg;P.maxmp=P._orig.maxmp;P.hp=P.maxhp;P.mp=P.maxmp;}
-  P.compromised=false; $('heroName').textContent='❤ 少俠（達拉什麼翁的）'; refreshHud();
+  P.compromised=false; $('heroName').textContent='❤ 少俠（達拉什麼翁的）'; refreshHud(); updateNameBanner();
   showChoice('旁白','你找回了靈魂，也找回了那串沒人記得住的名字。',[{label:'（屬性已恢復）',fn:null}]);
 }
 function engraveRefuse(){
   if(!P.refused){ P.refused=true; P.weapon='bigsword'; P.atk+=40; refreshHud(); showAchievement('鐵匠的怨念'); }
   showChoice('鐵匠老李','「好！有骨氣！」<br>他怒而打造出一把——「根本刻不下的大劍」！<br>（獲得神兵，攻擊大幅提升）',[{label:'接下神兵！',fn:null}]);
 }
+// ── 物理遮擋：主角超長名字封條，橫切螢幕 ──
+function updateNameBanner(){
+  const nm=P.compromised?'王浩然':NAMES.heroTrue.join('');
+  const el=$('nameBanner'); if(!el)return;
+  el.querySelector('span').textContent='⚔ '+nm+' 大俠在此 ⚔';
+  el.style.display=(mode==='play')?'block':'none';
+}
+// ── 朝廷通緝令（實名制）──
+const GUARD_BARKS=['站住！那個…','達…達…','那個長名字的！','給本官站住——','喂！那個達拉什麼的！'];
+function showWantedPoster(){
+  if(P._wantedShown)return; P._wantedShown=true;
+  const nm=NAMES.heroTrue.join('');
+  $('wantedPosters').innerHTML=nm.split('').map(c=>'<div class="wposter"><div class="wp-h">通緝</div><div class="wp-face">？</div><div class="wp-n">'+c+'</div></div>').join('');
+  $('wantedOverlay').style.display='flex'; inDlg=true;
+}
+window.closeWanted=()=>{ $('wantedOverlay').style.display='none'; inDlg=false; };
 function usePotion(){
   if(P.potions<=0){floatText(hero.position,'沒有傷藥','#ff6666');return;}
   if(P.hp>=P.maxhp)return;
@@ -1428,6 +1476,7 @@ function animate(){
       if(e.def.type==='guard'){if(P.wanted>=3&&!e.hostile){e.hostile=true;e.state='chase';}if(P.wanted<3&&e.hostile&&e.hp===e.maxhp){e.hostile=false;e.state='patrol';}}
       if((e.def.type==='bandit'||e.def.type==='hermit')&&d<20&&e.state==='patrol') e.state='chase';
       if(e.def.type==='tutmob'&&d<9&&!qteActive) startBreak(e);   // 走近教學小怪→出招破招
+      if(e.def.type==='guard'&&e.hostile&&d<15){ e._barkT=(e._barkT||0)-dt; if(e._barkT<=0){e._barkT=2.6+Math.random()*1.6;floatText(e.mesh.position,GUARD_BARKS[Math.floor(Math.random()*GUARD_BARKS.length)],'#ffe08a');} }  // 捕快唸不出名字
       if(e.def.type==='cultboss'){
         if(d<26&&e.state==='patrol') e.state='chase';
         if(e.state==='chase'&&!qteActive){               // 接戰後計時逼問
@@ -1534,6 +1583,7 @@ animate();
 $('lsProg').style.width='100%';
 $('introOverlay').addEventListener('click',e=>{ if(e.target.id==='introSkip')return; if(introActive)nextIntro(); });
 $('introSkip').addEventListener('click',e=>{ e.stopPropagation(); endIntro(); });
+$('wantedClose').addEventListener('click',()=>window.closeWanted());
 setTimeout(()=>{
   $('loadScreen').style.opacity='0';
   setTimeout(()=>{
