@@ -185,6 +185,28 @@ body.touch #zoneName{font-size:17px;top:60px}
   font-family:"KaiTi","標楷體","DFKai-SB",serif;box-shadow:0 6px 30px rgba(232,184,75,.4);transition:top .5s cubic-bezier(.3,1.5,.5,1)}
 #achv.show{top:24px}
 
+/* ── 吟唱換氣終極大招 ── */
+#ultBtn{position:fixed;right:16px;bottom:200px;z-index:48;width:64px;height:64px;border-radius:50%;
+  background:radial-gradient(circle,#d8351f,#7a1810);color:#ffe9b0;border:2px solid #e8b84b;
+  font-family:"KaiTi","標楷體",serif;font-weight:bold;font-size:15px;line-height:1.1;text-align:center;
+  display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 0 16px rgba(216,53,31,.6);user-select:none}
+#ultBtn:active{transform:scale(.92)}
+body.touch #ultBtn{right:16px;bottom:270px}
+#ultOverlay{position:fixed;inset:0;z-index:125;display:none;flex-direction:column;align-items:center;justify-content:center;gap:14px;
+  background:radial-gradient(ellipse at center,rgba(40,8,8,.55),rgba(21,8,8,.9));font-family:"KaiTi","標楷體","DFKai-SB",serif;padding:20px}
+#ultOverlay.gold{animation:qteGold .25s ease}
+#ultBark{color:#ffd9a0;font-size:18px;letter-spacing:2px;text-align:center;max-width:92vw;text-shadow:0 2px 10px #000;line-height:1.6}
+#ultAnswered{color:#e8b84b;font-size:30px;letter-spacing:6px;min-height:40px;font-weight:bold;text-shadow:0 0 16px rgba(232,184,75,.7)}
+#ultHint{color:#ffd9a0;opacity:.85;font-size:14px;letter-spacing:2px}
+#ultCells{display:flex;flex-wrap:wrap;gap:12px;justify-content:center;max-width:96vw}
+#ultBreath{display:flex;flex-direction:column;align-items:center;gap:18px}
+#ultBar{position:relative;width:min(440px,86vw);height:30px;background:rgba(0,0,0,.6);border:2px solid #e8b84b;border-radius:15px;overflow:hidden}
+#ultZone{position:absolute;left:42%;width:16%;top:0;bottom:0;background:rgba(111,174,143,.7)}
+#ultMarker{position:absolute;left:0;top:-3px;bottom:-3px;width:6px;background:#ffe9b0;box-shadow:0 0 10px #fff;border-radius:3px}
+#ultBreathBtn{font-family:inherit;font-size:24px;font-weight:bold;padding:14px 46px;border-radius:14px;cursor:pointer;
+  background:#1c5a38;color:#eafff2;border:2px solid #8fe6b0}
+#ultBreathBtn:active{transform:translateY(2px)}
+
 /* ── 念名字破防 QTE ── */
 #bossBar{transition:width .45s cubic-bezier(.5,-0.4,.5,1.4)}
 #bossBar.bloat{animation:bossBloat .5s ease}
@@ -333,6 +355,19 @@ body.touch #zoneName{font-size:17px;top:60px}
   </div>
 </div>
 
+<!-- 吟唱換氣終極大招 -->
+<div id="ultBtn" style="display:none">吟唱<br>絕學</div>
+<div id="ultOverlay">
+  <div id="ultBark"></div>
+  <div id="ultAnswered"></div>
+  <div id="ultHint"></div>
+  <div id="ultCells"></div>
+  <div id="ultBreath" style="display:none">
+    <div id="ultBar"><div id="ultZone"></div><div id="ultMarker"></div></div>
+    <button id="ultBreathBtn">換 氣</button>
+  </div>
+</div>
+
 <!-- 念名字破防 QTE -->
 <div id="qteOverlay">
   <div id="qteBark">教主：「再說一次，孤的名字叫什麼——？」</div>
@@ -368,7 +403,7 @@ const $    = id => document.getElementById(id);
 const rand = (a,b) => Math.floor(a+Math.random()*(b-a+1));
 const dist2= (a,b) => Math.hypot(a.position.x-b.position.x,a.position.z-b.position.z);
 const clamp= (v,a,b) => Math.max(a,Math.min(b,v));
-function showHUD(){['minimap','wanted','topright','playerHud','hotbar','bottomleft','hint','xhair','questPanel','skillCdRing'].forEach(id=>$(id).style.display='');}
+function showHUD(){['minimap','wanted','topright','playerHud','hotbar','bottomleft','hint','xhair','questPanel','skillCdRing','ultBtn'].forEach(id=>$(id).style.display='');}
 // ── 觸控裝置偵測 ──
 // 有滑鼠/觸控筆(fine pointer)就走電腦模式；純觸控(只有 coarse)才開手機 UI
 const IS_TOUCH = matchMedia('(pointer:coarse)').matches && !matchMedia('(pointer:fine)').matches;
@@ -986,7 +1021,7 @@ function shootArrow(){
 // ── combat ──
 let attackCD=0,heroLunge=0,freeze=0,comboN=0,comboT=0,skillCD=0,lastCombatTime=999;
 function playerAttack(){
-  if(mode!=='play'||attackCD>0) return;
+  if(mode!=='play'||attackCD>0||P._choke>0) return;
   if(IS_TOUCH) faceNearestEnemy(P.weapon==='bow'?18:3.8);
   if(P.weapon==='bow'){shootArrow();attackCD=.55;spawnSlash(1);heroLunge=.1;return;}
   comboN=comboT>0&&comboN<4?comboN+1:1;comboT=1.3;
@@ -1008,7 +1043,7 @@ function playerAttack(){
   if(hit&&comboN>=3){screenShake(.05);}
 }
 function playerSkill(){
-  if(mode!=='play'||P.mp<P.skillCost||skillCD>0) return;
+  if(mode!=='play'||P.mp<P.skillCost||skillCD>0||P._choke>0) return;
   if(IS_TOUCH) faceNearestEnemy(14);
   P.mp-=P.skillCost;skillCD=8.0;refreshHud();heroLunge=.3;lastCombatTime=0;
   heroPlayOnce('skill',1.2);
@@ -1060,6 +1095,61 @@ function playerSkill(){
     }
     refreshHud();
   }
+}
+// ══════════ 吟唱換氣終極大招（報自己的名字蓄力）══════════
+const ULT={cooldown:14, segLen:3, base:60};   // 每念 segLen 字換氣一次；傷害=base×字數×換氣倍率
+let ultActive=false,ultIdx=0,ultMult=1,ultPhase='',ultSweep=0,ultSweepDir=1,ultBreathT=0,ultCD=0;
+function startUltimate(){
+  if(ultActive||qteActive||mode!=='play'||ultCD>0||P._choke>0){ if(ultCD>0)floatText(hero.position,'真氣未復（'+Math.ceil(ultCD)+'s）','#aaa'); return; }
+  ultActive=true; ultIdx=0; ultMult=1; mode='qte';
+  $('ultAnswered').textContent=''; $('ultBark').textContent='大俠運起真氣，吟唱絕學——報出你的名號！';
+  $('ultOverlay').style.display='flex'; ultPick();
+}
+function ultPick(){ ultPhase='pick'; $('ultBreath').style.display='none'; $('ultCells').style.display='flex'; showUltCell(); }
+function showUltCell(){
+  const correct=NAMES.heroTrue[ultIdx];
+  const pool=_shuf([...NAMES.boss.chars,...NAMES.heroine.split('')].filter(c=>c!==correct)).slice(0,4);
+  $('ultHint').textContent='吟唱（第 '+(ultIdx+1)+'/'+NAMES.heroTrue.length+' 字）　倍率 ×'+ultMult.toFixed(1);
+  const wrap=$('ultCells'); wrap.innerHTML='';
+  _shuf([correct,...pool]).forEach(ch=>{const b=document.createElement('button');b.className='qcand';b.textContent=ch;b.onclick=()=>onUltPick(ch);wrap.appendChild(b);});
+}
+function onUltPick(ch){
+  if(!ultActive||ultPhase!=='pick')return;
+  if(ch!==NAMES.heroTrue[ultIdx]){ ultChoke('字念錯了！'); return; }
+  $('ultAnswered').textContent+=ch; ultIdx++;
+  const o=$('ultOverlay');o.classList.remove('gold');void o.offsetWidth;o.classList.add('gold');
+  if(ultIdx>=NAMES.heroTrue.length){ ultUnleash(); return; }
+  if(ultIdx%ULT.segLen===0) ultBreath(); else showUltCell();
+}
+function ultBreath(){
+  ultPhase='breath'; $('ultCells').style.display='none'; $('ultBreath').style.display='block';
+  $('ultBark').textContent='換氣！抓準綠色甜蜜點，點「換氣」——'; ultSweep=0; ultSweepDir=1; ultBreathT=4.0;
+}
+function onBreathTap(){
+  if(!ultActive||ultPhase!=='breath')return;
+  const m=ultSweep;
+  if(m>=0.42&&m<=0.58){ ultMult*=2; floatText(hero.position,'Perfect 換氣！','#e8b84b'); }
+  else if(m>=0.28&&m<=0.72){ ultMult*=1.3; floatText(hero.position,'換氣 OK','#8fe6b0'); }
+  else { ultChoke('換氣亂了！'); return; }
+  ultPhase='wait'; setTimeout(()=>{ if(ultActive) ultPick(); },350);
+}
+function ultChoke(msg){
+  ultActive=false; ultPhase=''; mode='play'; $('ultOverlay').style.display='none';
+  ultCD=ULT.cooldown; P._choke=3;
+  floatText(hero.position,'咳咳咳…'+msg+'缺氧窒息！','#b06ad8'); screenShake(.12); screenFlash();
+}
+function ultUnleash(){
+  ultActive=false; ultPhase=''; mode='play'; ultCD=ULT.cooldown;
+  const dmg=Math.round(ULT.base*NAMES.heroTrue.length*ultMult);
+  const shown=ultMult>=8?99999:dmg;   // 全 Perfect → 萬劍歸宗 99999
+  $('ultBark').textContent='萬劍歸宗！'+shown+' 傷害！';
+  floatText(hero.position,'⚔ 萬劍歸宗 '+shown+'！','#e8b84b'); screenShake(.3); screenFlash(); skillRing();
+  for(const e of npcs){ if(!e.alive||dist2(hero,e.mesh)>9)continue;
+    spawnHitParticles(e.mesh.position,0xffcc00,12);
+    if(e.def.type==='cultboss'){ if(!e._invincible){ e.hp=Math.max(0,e.hp-shown); drawBar(e.bar,e.hp/e.maxhp); syncBossBar(e); floatText(e.mesh.position,'-'+shown,'#e8b84b'); if(e.hp<=0)defeatCultBoss(e);} }
+    else damageNPC(e,shown);
+  }
+  setTimeout(()=>$('ultOverlay').style.display='none',900);
 }
 function damageNPC(e,dmg){
   // 魔教教主：普攻只造成微小 chip，真正輸出靠念名字破防
@@ -1312,6 +1402,8 @@ addEventListener('keydown',e=>{
   if(k==='c') P.crouching=!P.crouching;
   if(k==='q'&&P.hasBow){P.weapon=P.weapon==='bow'?'sword':'bow';floatText(hero.position,P.weapon==='bow'?'切換：袖箭':'切換：劍','#ffd');refreshHud();}
   if(k==='v') switchCam();
+  if(k==='r') startUltimate();
+  if(k===' '&&ultActive&&ultPhase==='breath'){e.preventDefault();onBreathTap();}
   if(k==='enter'&&inDlg) closeDlg();
   if(k==='control'){
     let mx=0,mz=0;
@@ -1414,6 +1506,14 @@ function animate(){
     const cf=$('qteCastFill'); if(cf) cf.style.transform=`scaleX(${Math.max(0,qteCellTimer/qteCellMax)})`;
     if(qteCellTimer<=0){ qteFinisher?finisherFail():breakFail(); }
   }
+  // 大招冷卻、缺氧硬直、換氣掃動
+  if(ultCD>0) ultCD-=dt;
+  if(P._choke>0){ P._choke-=dt; P._chokeTick=(P._chokeTick||0)-dt; if(P._chokeTick<=0){P._chokeTick=.7;floatText(hero.position,'咳！','#b06ad8');} }
+  if(ultActive&&ultPhase==='breath'){
+    ultSweep+=ultSweepDir*dt*1.25; if(ultSweep>=1){ultSweep=1;ultSweepDir=-1;} if(ultSweep<=0){ultSweep=0;ultSweepDir=1;}
+    const mk=$('ultMarker'); if(mk) mk.style.left='calc('+(ultSweep*100)+'% - 3px)';
+    ultBreathT-=dt; if(ultBreathT<=0) ultChoke('沒換到氣！');
+  }
   if(attackCD>0) attackCD-=dt;
   if(skillCD>0){skillCD-=dt;const pct=skillCD/8;$('cdCircle').style.strokeDashoffset=(pct*120).toFixed(1);}
   else $('cdCircle').style.strokeDashoffset=0;
@@ -1449,6 +1549,7 @@ function animate(){
     if(keys['w']||keys['arrowup'])   mz-=1;if(keys['s']||keys['arrowdown']) mz+=1;
     if(keys['a']||keys['arrowleft']) mx-=1;if(keys['d']||keys['arrowright'])mx+=1;
     if(touchMove.active){mx+=touchMove.x;mz+=touchMove.z;}
+    if(P._choke>0){mx=0;mz=0;}   // 缺氧硬直不能動
     P.sprinting=(keys['shift']||touchSprint)&&(mx!==0||mz!==0)&&P.sta>0;
     if(P.sprinting){P.sta=Math.max(0,P.sta-dt*28);if(P.sta<=0)P.sprinting=false;}
     const ml=Math.hypot(mx,mz);heroMoving=ml>0;
@@ -1584,6 +1685,10 @@ $('lsProg').style.width='100%';
 $('introOverlay').addEventListener('click',e=>{ if(e.target.id==='introSkip')return; if(introActive)nextIntro(); });
 $('introSkip').addEventListener('click',e=>{ e.stopPropagation(); endIntro(); });
 $('wantedClose').addEventListener('click',()=>window.closeWanted());
+$('ultBtn').addEventListener('click',()=>startUltimate());
+{const bb=$('ultBreathBtn');
+ bb.addEventListener('touchstart',e=>{e.preventDefault();onBreathTap();},{passive:false});
+ bb.addEventListener('click',()=>onBreathTap());}
 setTimeout(()=>{
   $('loadScreen').style.opacity='0';
   setTimeout(()=>{
