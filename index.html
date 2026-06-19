@@ -546,6 +546,59 @@ function torch(x,z){
 }
 for(const[tx,tz]of[[-6,-43],[6,-43],[-6,-53],[6,-53],[0,-45],[-12,-59],[12,-59],[-57,-2],[-57,10],[-53,-8]]) torch(tx,tz);
 
+// ── 場景美化 ──
+// 紅燈籠（夜間發光）
+const lanterns=[];
+function lantern(x,z,y=3.2){
+  const g=new THREE.Group();
+  const pole=new THREE.Mesh(new THREE.CylinderGeometry(.07,.07,y,6),new THREE.MeshStandardMaterial({color:0x5a3a1a}));pole.position.y=y/2;g.add(pole);
+  const body=new THREE.Mesh(new THREE.SphereGeometry(.42,12,10),new THREE.MeshStandardMaterial({color:0xd8351f,emissive:0x661008,roughness:.6}));body.scale.y=.8;body.position.y=y-.1;g.add(body);
+  const l=new THREE.PointLight(0xff6633,0,7);l.position.set(0,y-.1,0);g.add(l);lanterns.push({l,body});
+  g.position.set(x,0,z);scene.add(g);
+}
+for(const[x,z]of[[-9,-44],[5,-47],[-15,-55],[14,-54],[-2,-61],[3,-39],[-4,-39]]) lantern(x,z);
+// 水井
+(function well(){
+  const g=new THREE.Group();
+  const ring=new THREE.Mesh(new THREE.CylinderGeometry(1.1,1.2,1.2,16),new THREE.MeshStandardMaterial({color:0x8a8278,roughness:1}));ring.position.y=.6;ring.castShadow=true;g.add(ring);
+  const water=new THREE.Mesh(new THREE.CircleGeometry(.95,16),new THREE.MeshStandardMaterial({color:0x224a66,roughness:.1,metalness:.3}));water.rotation.x=-Math.PI/2;water.position.y=.5;g.add(water);
+  for(const px of[-1.1,1.1]){const p=new THREE.Mesh(new THREE.CylinderGeometry(.1,.1,2.6,6),new THREE.MeshStandardMaterial({color:0x5a3a1a}));p.position.set(px,1.9,0);g.add(p);}
+  const beam=new THREE.Mesh(new THREE.CylinderGeometry(.1,.1,2.4,6),new THREE.MeshStandardMaterial({color:0x5a3a1a}));beam.rotation.z=Math.PI/2;beam.position.y=3.1;g.add(beam);
+  const roof=new THREE.Mesh(new THREE.ConeGeometry(1.8,1,4),new THREE.MeshStandardMaterial({color:0x7a3a1a,roughness:.8}));roof.rotation.y=Math.PI/4;roof.position.y=3.8;g.add(roof);
+  g.position.set(10,0,-50);scene.add(g);
+})();
+// 圍籬
+function fence(x1,z1,x2,z2){
+  const dx=x2-x1,dz=z2-z1,len=Math.hypot(dx,dz),n=Math.floor(len/1.5),fm=new THREE.MeshStandardMaterial({color:0x6a4a28,roughness:1});
+  for(let i=0;i<=n;i++){const t=i/n,p=new THREE.Mesh(new THREE.CylinderGeometry(.07,.07,1.2,5),fm);p.position.set(x1+dx*t,.6,z1+dz*t);scene.add(p);}
+  const rail=new THREE.Mesh(new THREE.BoxGeometry(.06,.12,len),fm);rail.position.set((x1+x2)/2,.95,(z1+z2)/2);rail.rotation.y=Math.atan2(dx,dz);scene.add(rail);
+}
+fence(-20,-40,-20,-58);fence(20,-40,20,-58);fence(-20,-58,-8,-64);fence(20,-58,8,-64);
+
+// ── 巨龍山洞（南境 z≈72）──
+function rock(x,z,s,col){const m=new THREE.Mesh(new THREE.DodecahedronGeometry(s,0),new THREE.MeshStandardMaterial({color:col||0x453f38,roughness:1,flatShading:true}));m.position.set(x,s*.4,z);m.rotation.set(Math.random()*3,Math.random()*3,Math.random()*3);m.castShadow=true;scene.add(m);}
+function darkPeak(x,z,h,r){const m=new THREE.Mesh(new THREE.ConeGeometry(r,h,7),new THREE.MeshStandardMaterial({color:0x35302a,roughness:1,flatShading:true}));m.position.set(x,h/2,z);m.castShadow=true;scene.add(m);}
+(function dragonLair(){
+  const cz=80;
+  for(let i=0;i<9;i++){const a=i/8*Math.PI;darkPeak(Math.cos(a)*-18+0, cz+Math.sin(a)*8+2, 16+Math.random()*12, 7+Math.random()*5);}
+  // 山體
+  const mound=new THREE.Mesh(new THREE.SphereGeometry(12,18,12,0,Math.PI*2,0,Math.PI/2),new THREE.MeshStandardMaterial({color:0x3a352e,roughness:1,flatShading:true}));
+  mound.scale.set(1.5,1.1,1);mound.position.set(0,0,cz);scene.add(mound);
+  // 黑洞口（面向玩家 -z）
+  const mouth=new THREE.Mesh(new THREE.CircleGeometry(5,22),new THREE.MeshBasicMaterial({color:0x040208}));mouth.position.set(0,5,cz-12.3);scene.add(mouth);
+  const arch=new THREE.Mesh(new THREE.TorusGeometry(5,.8,8,22,Math.PI),new THREE.MeshStandardMaterial({color:0x2a2620,roughness:1,flatShading:true}));arch.position.set(0,5,cz-12.2);scene.add(arch);
+  // 紅光氛圍
+  const glow=new THREE.PointLight(0xff2810,2.4,46);glow.position.set(0,5,cz-8);scene.add(glow);
+  // 散落巨石
+  for(let i=0;i<12;i++){const a=Math.random()*Math.PI*2,r=10+Math.random()*16;rock(Math.cos(a)*r,cz-8+Math.sin(a)*r*.5,1+Math.random()*2.6);}
+  // 龍的金幣寶藏堆
+  const hoard=new THREE.Mesh(new THREE.ConeGeometry(4.5,1.4,18),new THREE.MeshStandardMaterial({color:0xe8b84b,metalness:.85,roughness:.3}));hoard.position.set(0,.7,cz-15);scene.add(hoard);
+})();
+
+// ── 飄落竹葉（氛圍）──
+const leaves=[];const leafGeo=new THREE.PlaneGeometry(.3,.5),leafMat=new THREE.MeshBasicMaterial({color:0x88c46a,transparent:true,opacity:.8,side:THREE.DoubleSide});
+for(let i=0;i<60;i++){const lf=new THREE.Mesh(leafGeo,leafMat);lf.position.set((Math.random()-.5)*120,Math.random()*16,(Math.random()-.5)*120);lf.rotation.set(Math.random()*3,Math.random()*3,Math.random()*3);scene.add(lf);leaves.push({m:lf,vy:.4+Math.random()*.6,sx:(Math.random()-.5)*.5,rot:(Math.random()-.5)*2});}
+
 // ── hero 3D 模型 + 動畫 ──
 let hero=new THREE.Group(); scene.add(hero);
 let heroModel=null,heroMixer=null;
@@ -1542,6 +1595,8 @@ function animate(){
   tickSky(dt);
   const isNight=dayTime>.83||dayTime<.22;
   for(const l of torches) l.intensity=isNight?(1.6+Math.sin(t*7.5)*.25):0;
+  for(const o of lanterns) o.l.intensity=isNight?(1.3+Math.sin(t*4+o.body.position.x)*.3):0;
+  for(const lf of leaves){ lf.m.position.y-=lf.vy*dt; lf.m.position.x+=lf.sx*dt; lf.m.rotation.z+=lf.rot*dt; lf.m.rotation.x+=lf.rot*dt*.5; if(lf.m.position.y<0){lf.m.position.y=16;lf.m.position.x=(Math.random()-.5)*120;lf.m.position.z=(Math.random()-.5)*120;} }
   if(freeze>0){freeze-=dt;renderer.render(scene,camera);return;}
   t+=dt;
   // 念名字 QTE 計時（每格越逼越快，超時=破防失敗）
