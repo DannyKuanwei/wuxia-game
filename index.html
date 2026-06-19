@@ -147,6 +147,23 @@ body.touch #zoneName{font-size:17px;top:60px}
 #introSkip{position:absolute;top:16px;right:16px;color:#ece0c8;font-size:13px;background:rgba(0,0,0,.45);
   padding:6px 13px;border-radius:999px;cursor:pointer;letter-spacing:1px}
 
+/* ── 二選一對話 + 成就 ── */
+#choiceOverlay{position:fixed;inset:0;z-index:130;display:none;align-items:center;justify-content:center;
+  background:rgba(21,16,13,.6);padding:18px;font-family:"KaiTi","標楷體","DFKai-SB","Noto Serif CJK TC",serif}
+#choiceCard{background:#ece0c8;color:#15100d;border:2px solid #b89a5a;border-radius:14px;max-width:520px;width:92vw;
+  padding:20px 22px;box-shadow:0 10px 44px rgba(0,0,0,.55)}
+#choiceName{color:#d8351f;font-size:16px;font-weight:bold;letter-spacing:2px;margin-bottom:10px}
+#choiceText{font-size:17px;line-height:1.85;margin-bottom:16px}
+#choiceBtns{display:flex;flex-direction:column;gap:10px}
+.choiceBtn{font-family:inherit;font-size:16px;padding:12px 14px;border-radius:10px;cursor:pointer;
+  background:#1c5a38;color:#eafff2;border:2px solid #8fe6b0;transition:.12s;text-align:left}
+.choiceBtn:hover{background:#277a4c}
+.choiceBtn:active{transform:translateY(2px)}
+#achv{position:fixed;top:-80px;left:50%;transform:translateX(-50%);z-index:250;background:#15100d;color:#e8b84b;
+  border:2px solid #e8b84b;border-radius:12px;padding:12px 22px;font-size:16px;letter-spacing:2px;font-weight:bold;
+  font-family:"KaiTi","標楷體","DFKai-SB",serif;box-shadow:0 6px 30px rgba(232,184,75,.4);transition:top .5s cubic-bezier(.3,1.5,.5,1)}
+#achv.show{top:24px}
+
 /* ── 念名字破防 QTE ── */
 #bossBar{transition:width .45s cubic-bezier(.5,-0.4,.5,1.4)}
 #bossBar.bloat{animation:bossBloat .5s ease}
@@ -272,6 +289,17 @@ body.touch #zoneName{font-size:17px;top:60px}
     <div id="introNext">點擊繼續 ▶</div>
   </div>
 </div>
+
+<!-- 二選一對話（鐵匠刻字等支線）-->
+<div id="choiceOverlay">
+  <div id="choiceCard">
+    <div id="choiceName"></div>
+    <div id="choiceText"></div>
+    <div id="choiceBtns"></div>
+  </div>
+</div>
+<!-- 隱藏成就橫幅 -->
+<div id="achv"></div>
 
 <!-- 念名字破防 QTE -->
 <div id="qteOverlay">
@@ -615,6 +643,7 @@ const NAMES={
   heroTrue:['達','拉','崩','吧','斑','得','貝','迪','卜','多','比','魯','翁'],
   heroine:'米婭莫拉蘇娜丹妮謝莉紅',
   town:'蒙達魯克硫斯伯古比奇巴勒城',
+  child:'達拉崩吧斑得綠綠牛仔庫塔卡提考特蘇瓦西拉蘇娜丹妮謝莉紅迪卜多比魯翁',
   heroDisplay:'那個……達拉什麼翁的大俠',     // 名字存檔系統：NPC 永遠這樣叫主角
   barks:['不對！是昆圖庫塔卡提考特蘇瓦西拉松！','連本座名諱都念不對？','哈哈哈，再說一次！','越罵越有精神！'],
 };
@@ -725,7 +754,10 @@ function showEnding(){
     '救出公主「'+NAMES.heroine+'」，<br>'+
     '回到「'+NAMES.town+'」。<br>'+
     '國王賜婚，從此幸福快樂⋯<br><br>'+
-    '多年後孩子出生——為避免麻煩，取名「王浩然」。';
+    '多年後孩子出生——為避免麻煩，取名「王浩然」。<br>'+
+    '⋯⋯不，開玩笑的。孩子的真名是：<br>'+
+    '<span style="color:#e8b84b">「'+NAMES.child+'」</span><br>'+
+    '（咦？怎麼混進了巨龍的名字「庫塔卡提考特蘇瓦西拉」，<br>中間還夾著「綠綠牛仔」⋯？！下回分曉——《大俠崩吧2：綠色大山的召喚》）';
   $('goScreen').style.display='flex';
 }
 // ── 開場劇情（主角廢話→村長委託→國王問名→報名笑點→選職業）──
@@ -929,7 +961,7 @@ function playerAttack(){
   const mult=comboN>=4?P.comboMult*1.5:comboN>=3?P.comboMult:comboN>=2?1.45:1.0;
   attackCD=1.0;heroLunge=.18;spawnSlash(comboN);showCombo(comboN);   // 最快 1 秒一下
   heroPlayOnce('attack',0.9);
-  const ry=hero.rotation.y,fx=Math.sin(ry),fz=Math.cos(ry),range=P.weapon==='sword2'?3.4:2.8;
+  const ry=hero.rotation.y,fx=Math.sin(ry),fz=Math.cos(ry),range=(P.weapon==='sword2')?3.4:(P.weapon==='bigsword')?3.8:2.8;
   let hit=false;
   for(const e of npcs){
     if(!e.alive) continue;
@@ -1055,7 +1087,7 @@ function setBar(fi,ti,cur,max){const f=$(fi);if(!f)return;f.style.transform=`sca
 function refreshHud(){
   setBar('hpFill','hpTxt',P.hp,P.maxhp);setBar('staFill','staTxt',P.sta,P.maxsta);
   $('coinsTxt').textContent=P.coins;$('potCnt').textContent=P.potions;$('mpPotCnt').textContent=P.mmpotions;
-  $('slot0').textContent=P.weapon==='bow'?'🏹':P.weapon==='sword2'?'🗡️':'⚔️';
+  $('slot0').textContent=P.weapon==='bow'?'🏹':P.weapon==='sword2'?'🗡️':P.weapon==='bigsword'?'🗡️':'⚔️';
 }
 const ZONES=[{name:'竹林・初境',x:0,z:0,r:32},{name:'北村・桃源',x:0,z:-52,r:26},{name:'東嶺・深山',x:68,z:-12,r:32},{name:'南境・匪巢',x:0,z:36,r:28},{name:'巨龍山洞',x:0,z:72,r:18},{name:'西寺・古剎',x:-55,z:2,r:22}];
 let curZone='';
@@ -1150,7 +1182,56 @@ function interact(){
   for(const c of chests){if(c.open)continue;const d=Math.hypot(hero.position.x-c.group.position.x,hero.position.z-c.group.position.z);if(d<2.5){openChest(c);return;}}
   let best=null,bd=4.5;
   for(const e of npcs){if(!e.alive||!e.def.dialogue)continue;const d=dist2(hero,e.mesh);if(d<bd){best=e;bd=d;}}
-  if(best){if(best.def.shop){$('shop').style.display='block';inDlg=true;}else{const ls=best.def.dialogue;showDlg(best.def.name,ls[Math.floor(Math.random()*ls.length)]);}}
+  if(best){
+    if(best.def.name==='鐵匠老李'){ blacksmithTalk(); }
+    else if(best.def.shop){$('shop').style.display='block';inDlg=true;}
+    else{const ls=best.def.dialogue;showDlg(best.def.name,ls[Math.floor(Math.random()*ls.length)]);}
+  }
+}
+// ── 二選一對話 + 鐵匠刻字支線 ──
+function showChoice(name,html,options){
+  inDlg=true;
+  $('choiceName').textContent=name; $('choiceText').innerHTML=html;
+  const wrap=$('choiceBtns'); wrap.innerHTML='';
+  options.forEach(o=>{const b=document.createElement('button');b.className='choiceBtn';b.textContent=o.label;
+    b.onclick=()=>{closeChoice();if(o.fn)o.fn();};wrap.appendChild(b);});
+  $('choiceOverlay').style.display='flex';
+}
+function closeChoice(){ $('choiceOverlay').style.display='none'; inDlg=false; }
+function showAchievement(t){
+  const el=$('achv'); el.textContent='🏆 隱藏成就：'+t;
+  el.classList.remove('show'); void el.offsetWidth; el.classList.add('show');
+  setTimeout(()=>el.classList.remove('show'),4200);
+}
+function blacksmithTalk(){
+  if(P.compromised){
+    showChoice('鐵匠老李','（看著沒精神的你）「王浩然啊⋯要不要反悔，把名字改回去？」',[
+      {label:'【反悔】改回達拉崩吧（恢復屬性）',fn:engraveRestore},
+      {label:'算了，我就王浩然',fn:null},
+    ]);return;
+  }
+  showChoice('鐵匠老李','（端詳你的名字三天三夜，吐血）<br>「大俠，小店玄鐵不夠長，刻到『斑得』就沒位置了！<br>要不您改名叫『王浩然』，我免費幫你刻滿天星？」',[
+    {label:'【妥協】改名王浩然（全屬性 -99%）',fn:engraveCompromise},
+    {label:'【拒絕】我就是達拉崩吧！',fn:engraveRefuse},
+    {label:'（先逛逛兵器）',fn:()=>{$('shop').style.display='block';inDlg=true;}},
+  ]);
+}
+function engraveCompromise(){
+  P._orig={maxhp:P.maxhp,atk:P.atk,skillDmg:P.skillDmg,maxmp:P.maxmp};
+  P.maxhp=Math.max(1,Math.floor(P.maxhp*.01)); P.hp=P.maxhp;
+  P.atk=Math.max(1,Math.floor(P.atk*.01)); P.skillDmg=Math.max(1,Math.floor(P.skillDmg*.01));
+  P.maxmp=Math.max(1,Math.floor(P.maxmp*.01)); P.mp=P.maxmp;
+  P.compromised=true; $('heroName').textContent='❤ 王浩然'; refreshHud();
+  showChoice('旁白','劍身刻滿了天星⋯但你彷彿失去了靈魂。<br>（你改名為「王浩然」，全屬性永久 -99%）<br>⋯想反悔的話，再來找鐵匠。',[{label:'⋯⋯（默默離開）',fn:null}]);
+}
+function engraveRestore(){
+  if(P._orig){P.maxhp=P._orig.maxhp;P.atk=P._orig.atk;P.skillDmg=P._orig.skillDmg;P.maxmp=P._orig.maxmp;P.hp=P.maxhp;P.mp=P.maxmp;}
+  P.compromised=false; $('heroName').textContent='❤ 少俠（達拉什麼翁的）'; refreshHud();
+  showChoice('旁白','你找回了靈魂，也找回了那串沒人記得住的名字。',[{label:'（屬性已恢復）',fn:null}]);
+}
+function engraveRefuse(){
+  if(!P.refused){ P.refused=true; P.weapon='bigsword'; P.atk+=40; refreshHud(); showAchievement('鐵匠的怨念'); }
+  showChoice('鐵匠老李','「好！有骨氣！」<br>他怒而打造出一把——「根本刻不下的大劍」！<br>（獲得神兵，攻擊大幅提升）',[{label:'接下神兵！',fn:null}]);
 }
 function usePotion(){
   if(P.potions<=0){floatText(hero.position,'沒有傷藥','#ff6666');return;}
