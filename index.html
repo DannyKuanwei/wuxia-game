@@ -573,9 +573,9 @@ window._doStart=()=>{
 // ══════════ 《大俠崩吧》念名字破防 Boss 戰 ══════════
 // 所有可調數值集中於此
 const CONFIG={
-  boss:{ maxHp:1000, safetyCastInterval:9, enrageDuration:5 },   // 每 N 秒逼問一次
+  boss:{ maxHp:1000, safetyCastInterval:15, enrageDuration:5 },  // 每 N 秒逼問一次（拉長）
   player:{ chipDamage:9 },                                       // 對教主的普攻很小（chip）
-  nameQTE:{ baseWindow:1.5, decayPerChar:0.07, minWindow:0.55 }, // 每格時間窗，越往後越快
+  nameQTE:{ baseWindow:12, decayPerChar:0.15, minWindow:10 },    // 每格時間窗：每格至少 10 秒，不再趕
   damage:{ unitBreakDamage:30 },                                 // 破防：每念對一字的傷害
   fail:{ healPercent:0.15, hpBloatMult:1.12 },                   // 念錯：回血 + 血條變長
 };
