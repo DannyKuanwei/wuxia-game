@@ -133,6 +133,20 @@ body.touch #topright{right:14px;top:10px;font-size:11px;padding:5px 9px;line-hei
 body.touch #playerHud{left:10px;right:auto;top:102px;bottom:auto;min-width:126px;padding:6px 9px}
 body.touch #zoneName{font-size:17px;top:60px}
 
+/* ── 開場劇情 ── */
+#introOverlay{position:fixed;inset:0;z-index:210;display:none;align-items:flex-end;justify-content:center;
+  background:linear-gradient(transparent 40%,rgba(21,16,13,.55));padding:0 0 9vh;cursor:pointer;
+  font-family:"KaiTi","標楷體","DFKai-SB","Noto Serif CJK TC",serif}
+#introCard{background:#ece0c8;color:#15100d;border:2px solid #b89a5a;border-radius:14px;max-width:520px;width:90vw;
+  padding:18px 22px;box-shadow:0 10px 44px rgba(0,0,0,.55);animation:introIn .25s ease}
+@keyframes introIn{from{transform:translateY(16px);opacity:0}to{transform:none;opacity:1}}
+#introName{color:#d8351f;font-size:16px;font-weight:bold;letter-spacing:2px;margin-bottom:8px}
+#introText{font-size:18px;line-height:1.85;letter-spacing:1px}
+#introNext{text-align:right;font-size:13px;color:#8a6a2a;margin-top:10px;animation:blink 1.2s infinite}
+@keyframes blink{50%{opacity:.25}}
+#introSkip{position:absolute;top:16px;right:16px;color:#ece0c8;font-size:13px;background:rgba(0,0,0,.45);
+  padding:6px 13px;border-radius:999px;cursor:pointer;letter-spacing:1px}
+
 /* ── 念名字破防 QTE ── */
 #bossBar{transition:width .45s cubic-bezier(.5,-0.4,.5,1.4)}
 #bossBar.bloat{animation:bossBloat .5s ease}
@@ -248,6 +262,16 @@ body.touch #zoneName{font-size:17px;top:60px}
 <div id="questPanel"><div class="qt">📜 當前任務</div><div class="qi" id="questTxt">—</div><div class="qd" id="questReward"></div></div>
 <div id="bossBar"><div class="bn" id="bossName">賊首</div><div class="bh"><span id="bossFill" style="transform:scaleX(1)"></span></div></div>
 <div id="skillCdRing"><svg viewBox="0 0 42 42"><circle cx="21" cy="21" r="19" id="cdCircle"/></svg></div>
+
+<!-- 開場劇情 -->
+<div id="introOverlay">
+  <div id="introSkip">跳過 ▶▶</div>
+  <div id="introCard">
+    <div id="introName"></div>
+    <div id="introText"></div>
+    <div id="introNext">點擊繼續 ▶</div>
+  </div>
+</div>
 
 <!-- 念名字破防 QTE -->
 <div id="qteOverlay">
@@ -566,7 +590,7 @@ window._doStart=()=>{
   loadHeroModel(chosenClass);   // 依職業載入對應 3D 模型
   hero.rotation.y=Math.PI;   // 預設面向地圖前方（背對鏡頭）
   showHUD(); mode='play'; refreshHud();
-  floatText(hero.position,'踏入江湖！','#ffd700');
+  floatText(hero.position,'出發！往南方巨龍山洞救公主！','#ffd700');
   startNextQuest();
 };
 
@@ -594,7 +618,7 @@ const NAMES={
   heroDisplay:'那個……達拉什麼翁的大俠',     // 名字存檔系統：NPC 永遠這樣叫主角
   barks:['不對！是昆圖庫塔卡提考特蘇瓦西拉松！','連本座名諱都念不對？','哈哈哈，再說一次！','越罵越有精神！'],
 };
-let qteActive=false,qteBoss=null,qteIdx=0,qteCellTimer=0,qteCellMax=0,qteChars=null,qteFinisher=false;
+let qteActive=false,qteBoss=null,qteIdx=0,qteCellTimer=0,qteCellMax=0,qteChars=null,qteFinisher=false,qteOnDone=null;
 const _shuf=a=>{a=a.slice();for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;};
 const qteWindow=i=>Math.max(CONFIG.nameQTE.minWindow,CONFIG.nameQTE.baseWindow-i*CONFIG.nameQTE.decayPerChar);
 
@@ -607,10 +631,10 @@ function startBreak(boss){
   $('qteOverlay').style.display='flex';
   showQteCell();
 }
-function startFinisher(){
-  qteActive=true; qteFinisher=true; qteChars=NAMES.heroTrue; qteIdx=0; qteBoss=null; mode='qte';
+function startReportName(bark,onDone){     // 報名號 QTE（開場報名、結局報名共用）
+  qteActive=true; qteFinisher=true; qteChars=NAMES.heroTrue; qteIdx=0; qteBoss=null; mode='qte'; qteOnDone=onDone||null;
   $('qteAnswered').textContent='';
-  $('qteBark').textContent='「行不更名，坐不改姓。老子就是——」';
+  $('qteBark').textContent=bark;
   $('qteOverlay').style.display='flex';
   showQteCell();
 }
@@ -670,21 +694,59 @@ function syncBossBar(b,bloat){
 function defeatCultBoss(b){
   b.alive=false; scene.remove(b.mesh); $('bossBar').style.display='none'; deathBurst(b.mesh.position);
   floatText(b.mesh.position,'巨龍倒下了！','#e8b84b');
-  setTimeout(()=>startFinisher(),1000);
+  setTimeout(()=>startReportName('「行不更名，坐不改姓。老子就是——」',showEnding),1000);
 }
 function finisherDone(){
-  qteActive=false; mode='play';
-  $('qteBark').textContent='在場眾人：「達拉……什麼？」（集體失憶）';
-  setTimeout(()=>{ $('qteOverlay').style.display='none';
-    $('goTitle').textContent='大俠崩吧・大功告成';
-    $('goText').innerHTML=
-      '你念對了全江湖沒人記得住的名字，戰勝了巨龍！<br>'+
-      '救出公主「'+NAMES.heroine+'」，<br>'+
-      '回到「'+NAMES.town+'」。<br>'+
-      '國王賜婚，從此幸福快樂⋯<br><br>'+
-      '多年後孩子出生——為避免麻煩，取名「王浩然」。';
-    $('goScreen').style.display='flex';
-  },1600);
+  qteActive=false; $('qteOverlay').style.display='none';
+  const cb=qteOnDone; qteOnDone=null; if(cb) cb();
+}
+function showEnding(){
+  mode='over';
+  $('goTitle').textContent='大俠崩吧・大功告成';
+  $('goText').innerHTML=
+    '眾人：「達拉……什麼？」（集體失憶）<br><br>'+
+    '你念對了全江湖沒人記得住的名字，戰勝了巨龍！<br>'+
+    '救出公主「'+NAMES.heroine+'」，<br>'+
+    '回到「'+NAMES.town+'」。<br>'+
+    '國王賜婚，從此幸福快樂⋯<br><br>'+
+    '多年後孩子出生——為避免麻煩，取名「王浩然」。';
+  $('goScreen').style.display='flex';
+}
+// ── 開場劇情（主角廢話→村長委託→國王問名→報名笑點→選職業）──
+let introSteps=null,introI=0,introActive=false;
+function startIntro(){
+  introActive=true; introI=0;
+  introSteps=[
+    ['少年','（伸懶腰）唉～江湖路遠，肚子又餓了，盤纏也快沒了⋯'],
+    ['少年','人家都說行俠仗義會出名，我看八成是會餓死在路邊。'],
+    ['少年','算了算了，反正我這麼帥，總會有貴人來找我的——'],
+    ['村長 王富貴','大俠啊！！救命啊——！'],
+    ['村長 王富貴','村裡最美的姑娘「米婭莫拉蘇娜丹妮謝莉紅」，被巨龍擄走到南方山洞去了！'],
+    ['國王','壯士，可願帶上最好的劍，去救公主？重重有賞！'],
+    ['少年','救！為了公主、為了正義、為了⋯（小聲）獎金。'],
+    ['國王','好！年輕人，你叫什麼名字？'],
+    {qte:true},
+    ['國王','⋯⋯再說一次？'],
+    ['國王','是不是「達拉崩吧斑得貝迪卜多比魯翁」？'],
+    ['少年','對對對，達拉崩吧斑得貝迪卜多比魯翁！'],
+    ['旁白','於是英雄帶上最好的劍，準備出發——先選好你的武藝吧！'],
+  ];
+  nextIntro();
+}
+function nextIntro(){
+  if(!introActive) return;
+  if(introI>=introSteps.length){ endIntro(); return; }
+  const s=introSteps[introI++];
+  if(s.qte){ $('introOverlay').style.display='none';
+    startReportName('國王：「你叫什麼名字？」——一格一格點出你的名號！',()=>{mode='charCreate';nextIntro();});
+    return; }
+  $('introName').textContent=s[0]; $('introText').textContent=s[1];
+  $('introOverlay').style.display='flex';
+}
+function endIntro(){
+  introActive=false; introSteps=null; $('introOverlay').style.display='none';
+  $('charCreate').style.display='flex';
+  if(!chosenClass){chosenClass='sword';$('cc_sword').classList.add('sel');$('startBtn').disabled=false;}
 }
 
 // ── NPCs ──
@@ -1367,15 +1429,15 @@ function animate(){
 }
 animate();
 
-// ── show char creation after Three.js loads ──
+// ── 載入後先演開場劇情，再跳職業選擇 ──
 $('lsProg').style.width='100%';
-chosenClass='sword';
+$('introOverlay').addEventListener('click',e=>{ if(e.target.id==='introSkip')return; if(introActive)nextIntro(); });
+$('introSkip').addEventListener('click',e=>{ e.stopPropagation(); endIntro(); });
 setTimeout(()=>{
   $('loadScreen').style.opacity='0';
   setTimeout(()=>{
     $('loadScreen').style.display='none';
-    $('charCreate').style.display='flex';
-    $('cc_sword').classList.add('sel');
+    startIntro();        // 主角廢話一堆 → 村長委託 → 報名笑點 → 才選職業
   },600);
 },800);
 
