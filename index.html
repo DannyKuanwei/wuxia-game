@@ -726,7 +726,8 @@ const P={
 };
 const WANTED_TXT=['☆☆☆☆☆','★☆☆☆☆','★★☆☆☆','★★★☆☆','★★★★☆','★★★★★'];
 function setWanted(n){P.wanted=clamp(n,0,5);P.wantedCd=35;$('wanted').textContent=WANTED_TXT[P.wanted];$('wanted').style.color=P.wanted>=4?'#ff4422':P.wanted>=2?'#ff9900':P.wanted>=1?'#ffd700':'rgba(255,215,0,.25)';if(P.wanted>=1)showWantedPoster();}
-function gainXP(n){P.xp+=n;if(P.xp>=P.xpNext){P.xp-=P.xpNext;P.level++;P.xpNext=Math.floor(P.xpNext*1.5);P.maxhp+=20;P.hp=P.maxhp;P.maxmp+=10;P.atk+=3;floatText(hero.position,'⬆ 升級！','#ffd700');$('lvTxt').textContent=P.level;sfxLevel();}}
+const LEVEL_QUIPS=['⬆ 升級！','武功更高了，名字一樣長','⬆ 升級！（褲子還是破的）','悟了！但還是記不住自己名字','⬆ 升級！氣勢+1 智商持平'];
+function gainXP(n){P.xp+=n;if(P.xp>=P.xpNext){P.xp-=P.xpNext;P.level++;P.xpNext=Math.floor(P.xpNext*1.5);P.maxhp+=20;P.hp=P.maxhp;P.maxmp+=10;P.atk+=3;floatText(hero.position,LEVEL_QUIPS[Math.floor(Math.random()*LEVEL_QUIPS.length)],'#ffd700');$('lvTxt').textContent=P.level;sfxLevel();}}
 function addCoins(n){P.coins+=n;$('coinsTxt').textContent=P.coins;}
 
 // ── class definitions ──
@@ -1427,7 +1428,9 @@ function damageNPC(e,dmg){
   if(e.hp<=0) killNPC(e);
   lastCombatTime=0;
 }
+const BANDIT_DYING=['我…我還沒報名號…','大哥…我上有老下有小…','早知道就去種田了…','下輩子…不當山賊了…','你贏了…但我不知道你叫啥…'];
 function killNPC(e){
+  if((e.def.type==='bandit'||e.def.type==='hermit')&&Math.random()<.6) floatText(e.mesh.position,BANDIT_DYING[Math.floor(Math.random()*BANDIT_DYING.length)],'#ffd0a0');
   e.alive=false;deathBurst(e.mesh.position);scene.remove(e.mesh);kills++;
   const xpGain=Math.floor(e.maxhp/2.5*(1+P.level*.08));
   gainXP(xpGain);addCoins(e.loot+rand(0,e.loot));
@@ -1672,9 +1675,15 @@ function updateNameBanner(){
   el.style.display=(mode==='play')?'block':'none';
 }
 // ── 朝廷通緝令（實名制）──
-const GUARD_BARKS=['站住！那個…','達…達…','那個長名字的！','給本官站住——','喂！那個達拉什麼的！'];
-const VILLAGER_IDLE=['今天天氣不錯欸～','蛤？你說什麼？','大俠你褲子破了','我家的雞又不見了','人生好難喔','聽說達拉什麼翁很厲害','你看那朵雲像不像我'];
-const VILLAGER_PANIC=['哇～通緝犯！','他叫達拉…達拉什麼來著？','名字好長的壞人啊！','救命～快逃啊！','官府快來抓他！','媽呀我褲子都嚇掉了'];
+const GUARD_BARKS=['站住！那個…','達…達…','那個長名字的！','給本官站住——','喂！那個達拉什麼的！','通緝令上的字…本官唸不完啊！','你的名字本官抄到手抽筋！','站住！我先深呼吸一下再唸你名字','犯人！呃…第幾個字來著？','本官數到三…唸不完算了，給我上！'];
+const VILLAGER_IDLE=['今天天氣不錯欸～','蛤？你說什麼？','大俠你褲子破了','我家的雞又不見了','人生好難喔','聽說達拉什麼翁很厲害','你看那朵雲像不像我','昨天我夢到一條會講話的魚','聽說隔壁村的豆腐特別嫩','我覺得我這輩子大概就這樣了','大俠你要去打龍喔？記得帶傘','欸你知道嗎，龍其實怕癢'];
+const VILLAGER_PANIC=['哇～通緝犯！','他叫達拉…達拉什麼來著？','名字好長的壞人啊！','救命～快逃啊！','官府快來抓他！','媽呀我褲子都嚇掉了','跑啊！那個名字會咬人的！','他的名字我抄了一整面牆！','報官！報官！呃…他叫啥？','別過來！我手機沒電了！'];
+// 名字越傳越歪——村民傳話傳到面目全非
+const RUMOR_NAMES=['達拉崩吧','達拉什麼吧','大力丸','達美樂','大白菜','打了個吧','達拉碰碰車','大瑪麗','搭啦哺哺','大便崩崩'];
+const VILLAGER_RUMOR=['聽說那個大俠叫「{n}」對吧？','我表哥說他叫「{n}」啦！','不對不對，是「{n}」才對！','我阿嬤都叫他「{n}」','官府說他真名是「{n}」，沒錯吧？'];
+const BANDIT_BARKS=['此路是我開～','留下買路財！','報上名來——啊算了太長了','嘿嘿，肥羊一隻','你那把劍能賣不少錢欸','大哥饒命！啊不對是你饒我命','喝啊！（氣勢都用完了）','看招！呃…什麼招來著'];
+const HERMIT_BARKS=['哼，後生可畏','接老夫一招！','你的名字，老夫沒興趣聽完','想過去？先過老夫這關','江湖一點訣，說破不值錢'];
+const MONK_AMBIENT=['阿彌陀佛…地我來掃，仇你來消','掃地三千遍，不如一聲佛號','施主，地板很滑，慢走','老衲法號很短，就一個字：掃','過去心不可得，灰塵倒是掃不完'];
 function showWantedPoster(){
   if(P._wantedShown)return; P._wantedShown=true;
   const nm=NAMES.heroTrue.join('');
@@ -1793,10 +1802,20 @@ function switchCam(){
 // ── game state ──
 let mode='charCreate';
 let _SPEED=6.5,_SPRINT=10.5;
+const DEATH_QUIPS=[
+  '據說他臨終想說自己的名字，但話沒說完就斷氣了。',
+  '他的墓碑刻不下全名，最後只刻了「達拉」。',
+  '一代大俠殞落，享年…呃，名字太長，生平來不及介紹。',
+  '村民們為他默哀三秒，因為唸完名字要花三分鐘。',
+  '巨龍表示：「我還沒聽完他的名字呢，可惜。」',
+  '他倒下時，褲子還是破的。',
+];
+const DEATH_TITLES=['少俠倒下了','大俠，安息','名字還沒唸完就…','江湖再無此人（的名字）'];
 function gameOver(){
   mode='over';
-  $('goTitle').textContent='少俠倒下了';
-  $('goText').innerHTML=`氣血耗盡⋯<br>擊敗 ${kills} 人・累積 ${P.coins} 兩・等級 ${P.level}<br>整頓之後，再入江湖！`;
+  $('goTitle').textContent=DEATH_TITLES[Math.floor(Math.random()*DEATH_TITLES.length)];
+  const quip=DEATH_QUIPS[Math.floor(Math.random()*DEATH_QUIPS.length)];
+  $('goText').innerHTML=`氣血耗盡⋯<br>擊敗 ${kills} 人・累積 ${P.coins} 兩・等級 ${P.level}<br><span style="color:#c9a96a;font-style:italic">「${quip}」</span><br>整頓之後，再入江湖！`;
   $('seqBtn').style.display='none';
   $('goScreen').style.display='flex';
 }
@@ -1820,7 +1839,13 @@ function animate(){
     qteCellTimer-=dt;
     const cf=$('qteCastFill'); if(cf) cf.style.transform=`scaleX(${Math.max(0,qteCellTimer/qteCellMax)})`;
     if(qteCellTimer<=0){ qteFinisher?finisherFail():breakFail(); }
-  }
+    // 唸名字唸到聽眾打瞌睡——念太久巨龍會無聊到打哈欠
+    if(qteBoss&&qteBoss.def.type==='cultboss'&&!qteFinisher){
+      qteBoss._zzzT=(qteBoss._zzzT||7)-dt;
+      if(qteBoss._zzzT<=0){ qteBoss._zzzT=6+Math.random()*3;
+        floatText(qteBoss.mesh.position,Math.random()<.5?'😴 zzz…':'（巨龍打了個哈欠）','#bcd4ff'); }
+    }
+  } else if(qteBoss) qteBoss._zzzT=null;
   // 大招冷卻、缺氧硬直、換氣掃動
   if(ultCD>0) ultCD-=dt;
   if(P._choke>0){ P._choke-=dt; P._chokeTick=(P._chokeTick||0)-dt; if(P._chokeTick<=0){P._chokeTick=.7;floatText(hero.position,'咳！','#b06ad8');} }
@@ -1893,7 +1918,15 @@ function animate(){
       if(e.def.type==='guard'){if(P.wanted>=3&&!e.hostile){e.hostile=true;e.state='chase';}if(P.wanted<3&&e.hostile&&e.hp===e.maxhp){e.hostile=false;e.state='patrol';}}
       if((e.def.type==='bandit'||e.def.type==='hermit')&&d<20&&e.state==='patrol') e.state='chase';
       if(e.def.type==='guard'&&e.hostile&&d<15){ e._barkT=(e._barkT||0)-dt; if(e._barkT<=0){e._barkT=2.6+Math.random()*1.6;floatText(e.mesh.position,GUARD_BARKS[Math.floor(Math.random()*GUARD_BARKS.length)],'#ffe08a');} }  // 捕快唸不出名字
-      if(e.def.type==='civilian'&&d<13){ e._barkT=(e._barkT||Math.random()*3)-dt; if(e._barkT<=0){e._barkT=3.5+Math.random()*3.5;const pool=P.wanted>=1?VILLAGER_PANIC:VILLAGER_IDLE;floatText(e.mesh.position,pool[Math.floor(Math.random()*pool.length)],P.wanted>=1?'#ff9c6e':'#cfe7d0');} }  // 村民白痴閒聊/通緝慌張
+      if(e.def.type==='civilian'&&d<13){ e._barkT=(e._barkT||Math.random()*3)-dt; if(e._barkT<=0){e._barkT=3.5+Math.random()*3.5;
+        let line;
+        if(P.wanted>=1) line=VILLAGER_PANIC[Math.floor(Math.random()*VILLAGER_PANIC.length)];
+        else if(Math.random()<0.4){ const tpl=VILLAGER_RUMOR[Math.floor(Math.random()*VILLAGER_RUMOR.length)]; line=tpl.replace('{n}',RUMOR_NAMES[Math.floor(Math.random()*RUMOR_NAMES.length)]); }  // 名字越傳越歪
+        else line=VILLAGER_IDLE[Math.floor(Math.random()*VILLAGER_IDLE.length)];
+        floatText(e.mesh.position,line,P.wanted>=1?'#ff9c6e':'#cfe7d0'); } }
+      if(e.def.type==='bandit'&&d<16){ e._barkT=(e._barkT||Math.random()*2)-dt; if(e._barkT<=0){e._barkT=3.2+Math.random()*2.5;floatText(e.mesh.position,BANDIT_BARKS[Math.floor(Math.random()*BANDIT_BARKS.length)],'#ffbf6e');} }
+      if(e.def.type==='hermit'&&d<18){ e._barkT=(e._barkT||Math.random()*2)-dt; if(e._barkT<=0){e._barkT=3.5+Math.random()*2.5;floatText(e.mesh.position,HERMIT_BARKS[Math.floor(Math.random()*HERMIT_BARKS.length)],'#d0b0ff');} }
+      if(e.def.type==='elder'&&d<11){ e._barkT=(e._barkT||Math.random()*4)-dt; if(e._barkT<=0){e._barkT=5+Math.random()*4;floatText(e.mesh.position,MONK_AMBIENT[Math.floor(Math.random()*MONK_AMBIENT.length)],'#e8dcc0');} }
       if(e.def.type==='cultboss'){
         if(d<26&&e.state==='patrol') e.state='chase';
         if(e.state==='chase'&&!qteActive){               // 接戰後計時逼問
