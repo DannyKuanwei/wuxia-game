@@ -2099,16 +2099,18 @@ function updateNameBanner(){
   el.style.display=(mode==='play')?'block':'none';
 }
 // ── 朝廷通緝令（實名制）──
-const GUARD_BARKS=['站住！那個…','達…達…','那個長名字的！','給本官站住——','喂！那個達拉什麼的！','通緝令上的字…本官唸不完啊！','你的名字本官抄到手抽筋！','站住！我先深呼吸一下再唸你名字','犯人！呃…第幾個字來著？','本官數到三…唸不完算了，給我上！','本官練書法十年就為了寫你通緝令','喂！你站住我喊得很累欸','你的名字害我們加班三天','捕快證上欄位不夠寫你名字啦','站——（喘）——住——（喘）','我同事唸你名字唸到舌頭抽筋請假了','官府墨水都被你名字用光了','你乖乖被抓我就不用唸完了好嗎','再跑我就只喊『欸』囉','本官唸到一半你別亂動！'];
+const GUARD_BARKS=['站住！那個…','達…達…','那個長名字的！','給本官站住——','喂！那個達拉什麼的！','通緝令上的字…本官唸不完啊！','你的名字本官抄到手抽筋！','站住！我先深呼吸一下再唸你名字','犯人！呃…第幾個字來著？','本官數到三…唸不完算了，給我上！','本官練書法十年就為了寫你通緝令','喂！你站住我喊得很累欸','你的名字害我們加班三天','捕快證上欄位不夠寫你名字啦','站——（喘）——住——（喘）','我同事唸你名字唸到舌頭抽筋請假了','官府墨水都被你名字用光了','你乖乖被抓我就不用唸完了好嗎','再跑我就只喊『欸』囉','本官唸到一半你別亂動！','喂！那個——算了你知道是你','本官的繩子比你的名字短，綁不完','你這通緝犯怎麼跑得比本官快','站住！本官腳麻了等我一下','抓到你本官就能升官了拜託','你的畫像我們畫了三天還沒畫完臉','本官追你追到都會背你名字了','給本官跪下！…啊不對是站住'];
 const VILLAGER_IDLE=['今天天氣不錯欸～','蛤？你說什麼？','大俠你褲子破了','我家的雞又不見了','人生好難喔','聽說達拉什麼翁很厲害','你看那朵雲像不像我','昨天我夢到一條會講話的魚','聽說隔壁村的豆腐特別嫩','我覺得我這輩子大概就這樣了','大俠你要去打龍喔？記得帶傘','欸你知道嗎，龍其實怕癢','我老婆叫我買醬油我走到這就忘了','活著好累，但躺著也會餓','大俠你身上味道有點重欸','我會算命喔，你今天會被怪打','聽說多運動會長壽，所以我都不動','早安～雖然現在是下午','我種的西瓜長得跟我一樣圓','其實我是隔壁村的臥底（噓）','我數錢數到睡著，醒來錢就不見了','大俠你劍借我切水果好不好','人活著到底為什麼呢…啊算了','昨天那個屁到現在我還在回味','聽說城西牛肉麵超好吃你要去嗎'];
 const VILLAGER_PANIC=['哇～通緝犯！','他叫達拉…達拉什麼來著？','名字好長的壞人啊！','救命～快逃啊！','官府快來抓他！','媽呀我褲子都嚇掉了','跑啊！那個名字會咬人的！','他的名字我抄了一整面牆！','報官！報官！呃…他叫啥？','別過來！我手機沒電了！','我我我什麼都沒看到！','大俠饒命！我家還有三隻雞要養！','救命啊有個名字很長的人！','我私房錢藏鞋子裡了別搜！','他來了他來了！誰啊？反正他來了！','嚇得我把午餐都吐回去了','快躲我家！啊不行我家被他撿空了','別殺我！我還沒結婚！'];
 // 名字越傳越歪——村民傳話傳到面目全非
 const RUMOR_NAMES=['達拉崩吧','達拉什麼吧','大力丸','達美樂','大白菜','打了個吧','達拉碰碰車','大瑪麗','搭啦哺哺','大便崩崩','達拉烤吧','大辣崩腿','打啦蹦蹦床','搭啦不不','大力出奇蹟','答辣冰波','達拉胖吧'];
 const VILLAGER_RUMOR=['聽說那個大俠叫「{n}」對吧？','我表哥說他叫「{n}」啦！','不對不對，是「{n}」才對！','我阿嬤都叫他「{n}」','官府說他真名是「{n}」，沒錯吧？','我發誓我聽到的是「{n}」','戲台上演的大俠叫「{n}」欸','我兒子作文寫他叫「{n}」被打叉','算命的說「{n}」這名字命很好'];
-const BANDIT_BARKS=['此路是我開～','留下買路財！','報上名來——啊算了太長了','嘿嘿，肥羊一隻','你那把劍能賣不少錢欸','大哥饒命！啊不對是你饒我命','喝啊！（氣勢都用完了）','看招！呃…什麼招來著','當山賊月薪不錯你要不要也來','我搶劫是兼職，正職是奶爸','把錢交出來～順便交個朋友','你看起來就很有錢（其實沒有）','我練三年刀法就為這一刀（揮空）','大哥我們講道理，把命留下','劫個財而已幹嘛拔劍那麼兇','我昨天才入行請多指教','其實我也是被逼的（被房貸）','站住！讓我先擺個帥氣pose'];
-const HERMIT_BARKS=['哼，後生可畏','接老夫一招！','你的名字，老夫沒興趣聽完','想過去？先過老夫這關','江湖一點訣，說破不值錢','老夫閉關十年就為等個對手','年輕人，你的劍有點抖喔','輸給老夫不丟臉，老夫很強','看招！這招我練了一甲子','哼，老夫當年也是這樣血氣方剛','你名氣是不小…就是名字太長'];
+const BANDIT_BARKS=['此路是我開～','留下買路財！','報上名來——啊算了太長了','嘿嘿，肥羊一隻','你那把劍能賣不少錢欸','大哥饒命！啊不對是你饒我命','喝啊！（氣勢都用完了）','看招！呃…什麼招來著','當山賊月薪不錯你要不要也來','我搶劫是兼職，正職是奶爸','把錢交出來～順便交個朋友','你看起來就很有錢（其實沒有）','我練三年刀法就為這一刀（揮空）','大哥我們講道理，把命留下','劫個財而已幹嘛拔劍那麼兇','我昨天才入行請多指教','其實我也是被逼的（被房貸）','站住！讓我先擺個帥氣pose','你的錢包跟你的命我只要一個','喝！哈！呼！（純粹喊爽的）','我刀法很好喔，就是準度差一點','打我啊，打我你手會痛','大哥你今天運氣不太好遇到我','哎喲我腰…我先蹲一下你等我','看我的絕招——我忘記了','你再靠近我就要認真了喔（不會）','我們山寨在徵人，要不要遞履歷','我昨晚熬夜，今天劫個財都沒力'];
+// 通用垃圾話池：所有戰鬥怪都會從這裡額外抽（湊出一大堆）
+const MOB_TRASH=['哈！','吃我一招！','你死定了～啦？','就這？就這實力？','我家小孩都打得比你痛','你劍是塑膠做的嗎','喂喂喂別跑啊膽小鬼','哎喲不錯喔～不過還是弱','你今天會死在這（probably）','我先攻你個措手不及——（被擋）','站好讓我打，動來動去的','你媽知道你在外面亂跑嗎','打架歸打架，不要打臉','我可是有練過的（練了三天）','嘿嘿你流血了～咦那是我的','你的破褲子我看不下去','受死吧！…抱歉口誤，受傷就好','轉圈圈打不到我吧～（被打到）','我數三聲你就趴下：三！','慢著！讓我喝口水先','你這菜雞還想當大俠？','我閉著眼睛都打得贏（睜眼中）','放馬過來！馬呢？','痛痛痛你來真的喔','我認輸…才怪！','你的招式我看膩了','再來啊！欸不要真的再來','我今天心情好，只揍你八成力'];
+const HERMIT_BARKS=['哼，後生可畏','接老夫一招！','你的名字，老夫沒興趣聽完','想過去？先過老夫這關','江湖一點訣，說破不值錢','老夫閉關十年就為等個對手','年輕人，你的劍有點抖喔','輸給老夫不丟臉，老夫很強','看招！這招我練了一甲子','哼，老夫當年也是這樣血氣方剛','你名氣是不小…就是名字太長','老夫的白鬍子比你劍還利','嘖，現在的年輕人不講武德','老夫一根手指就能…欸好像不行','你的內力有點虛喔，要補一下','哼哼，老夫笑而不語（笑出聲）','當年老夫一拳一個，現在一拳一個（自己）','你以為閃得過？你閃過了…算你厲害','老夫吃過的鹽比你吃過的飯多（高血壓）','接招！老夫的成名絕技——膝蓋好痛'];
 const MONK_AMBIENT=['阿彌陀佛…地我來掃，仇你來消','掃地三千遍，不如一聲佛號','施主，地板很滑，慢走','老衲法號很短，就一個字：掃','過去心不可得，灰塵倒是掃不完','施主殺氣太重，要不要喝杯茶','掃地僧掃的不是地，是寂寞','老衲掃過最髒的，是人心啊','你來啦？地我剛掃好別踩','放下屠刀…那把先別放這會割到'];
-const DRAGON_TAUNTS=['哈哈哈，渺小的人類！','念得出本座的名字再來打啊！','你的劍搔得本座有點癢','本座盤踞此地千年，等的就是你來送死','公主在本座這住得可舒服了','你連自己名字都記不住，還想記本座的？','吼——（其實是打嗝）','再靠近點，本座好久沒吃宵夜了','你那串名字唸完，本座都老死了','本座的鱗片防火又防你','來啊，反正你也打不痛本座','本座數到三你還唸不出來——一、二、一…'];
+const DRAGON_TAUNTS=['哈哈哈，渺小的人類！','念得出本座的名字再來打啊！','你的劍搔得本座有點癢','本座盤踞此地千年，等的就是你來送死','公主在本座這住得可舒服了','你連自己名字都記不住，還想記本座的？','吼——（其實是打嗝）','再靠近點，本座好久沒吃宵夜了','你那串名字唸完，本座都老死了','本座的鱗片防火又防你','來啊，反正你也打不痛本座','本座數到三你還唸不出來——一、二、一…','你的劍法是跟誰學的？退費吧','本座噴的不是火，是熱情','勇者？本座看你比較像外送的','你血條看起來有點少喔，要喝藥嗎','本座千年來聽過最爛的挑戰就是你','你再揮空一次本座要睡著了','哈！搔癢都比你的攻擊有感','本座的弱點是名字，可惜你唸不出來','要不你回去練個等級再來？','本座的午餐通常是像你這樣的勇者','你打字…呃我是說打架的速度真慢','吼！（這次是認真的）（才怪）','念對名字本座就讓你打，敢嗎','你流的血夠本座泡澡了嗎？還不夠'];
 function showWantedPoster(){
   if(P._wantedShown)return; P._wantedShown=true;
   const nm=NAMES.heroTrue.join('');
@@ -2604,15 +2606,15 @@ function animate(){
       const atgt=aggroTarget(e), ad=Math.hypot(atgt.x-e.mesh.position.x,atgt.z-e.mesh.position.z);   // 仇恨目標（主坦引怪）與距離
       if(e.def.type==='guard'){if(P.wanted>=3&&!e.hostile){e.hostile=true;e.state='chase';}if(P.wanted<3&&e.hostile&&e.hp===e.maxhp){e.hostile=false;e.state='patrol';}}
       if((e.def.type==='bandit'||e.def.type==='hermit')&&ad<20&&e.state==='patrol') e.state='chase';
-      if(e.def.type==='guard'&&e.hostile&&d<15){ e._barkT=(e._barkT||0)-dt; if(e._barkT<=0){e._barkT=2.6+Math.random()*1.6;floatText(e.mesh.position,GUARD_BARKS[Math.floor(Math.random()*GUARD_BARKS.length)],'#ffe08a');} }  // 捕快唸不出名字
+      if(e.def.type==='guard'&&e.hostile&&d<15){ e._barkT=(e._barkT||0)-dt; if(e._barkT<=0){e._barkT=1.5+Math.random()*1.3;floatText(e.mesh.position,GUARD_BARKS[Math.floor(Math.random()*GUARD_BARKS.length)],'#ffe08a');} }  // 捕快唸不出名字
       if(e.def.type==='civilian'&&d<13){ e._barkT=(e._barkT||Math.random()*3)-dt; if(e._barkT<=0){e._barkT=3.5+Math.random()*3.5;
         let line;
         if(P.wanted>=1) line=VILLAGER_PANIC[Math.floor(Math.random()*VILLAGER_PANIC.length)];
         else if(Math.random()<0.4){ const tpl=VILLAGER_RUMOR[Math.floor(Math.random()*VILLAGER_RUMOR.length)]; line=tpl.replace('{n}',RUMOR_NAMES[Math.floor(Math.random()*RUMOR_NAMES.length)]); }  // 名字越傳越歪
         else line=VILLAGER_IDLE[Math.floor(Math.random()*VILLAGER_IDLE.length)];
         floatText(e.mesh.position,line,P.wanted>=1?'#ff9c6e':'#cfe7d0'); } }
-      if(e.def.type==='bandit'&&d<16){ e._barkT=(e._barkT||Math.random()*2)-dt; if(e._barkT<=0){e._barkT=3.2+Math.random()*2.5;floatText(e.mesh.position,BANDIT_BARKS[Math.floor(Math.random()*BANDIT_BARKS.length)],'#ffbf6e');} }
-      if(e.def.type==='hermit'&&d<18){ e._barkT=(e._barkT||Math.random()*2)-dt; if(e._barkT<=0){e._barkT=3.5+Math.random()*2.5;floatText(e.mesh.position,HERMIT_BARKS[Math.floor(Math.random()*HERMIT_BARKS.length)],'#d0b0ff');} }
+      if(e.def.type==='bandit'&&d<17){ e._barkT=(e._barkT||Math.random()*1.5)-dt; if(e._barkT<=0){e._barkT=1.6+Math.random()*1.6;const pool=BANDIT_BARKS.concat(MOB_TRASH);floatText(e.mesh.position,pool[Math.floor(Math.random()*pool.length)],'#ffbf6e');} }
+      if(e.def.type==='hermit'&&d<19){ e._barkT=(e._barkT||Math.random()*1.5)-dt; if(e._barkT<=0){e._barkT=1.8+Math.random()*1.6;const pool=HERMIT_BARKS.concat(MOB_TRASH);floatText(e.mesh.position,pool[Math.floor(Math.random()*pool.length)],'#d0b0ff');} }
       if(e.def.type==='elder'&&d<11){ e._barkT=(e._barkT||Math.random()*4)-dt; if(e._barkT<=0){e._barkT=5+Math.random()*4;floatText(e.mesh.position,MONK_AMBIENT[Math.floor(Math.random()*MONK_AMBIENT.length)],'#e8dcc0');} }
       if(e.def.type==='cultboss'){
         if(ad<26&&e.state==='patrol') e.state='chase';
@@ -2620,8 +2622,8 @@ function animate(){
           if(e._engageTimer==null) e._engageTimer=CONFIG.boss.safetyCastInterval;
           e._engageTimer-=dt;
           if(e._engageTimer<=0){ startBreak(e); }
-          e._tauntT=(e._tauntT==null?3:e._tauntT)-dt;   // 戰鬥中嗆聲
-          if(e._tauntT<=0){ e._tauntT=4+Math.random()*3; floatText(e.mesh.position,DRAGON_TAUNTS[Math.floor(Math.random()*DRAGON_TAUNTS.length)],'#ff7a4a'); }
+          e._tauntT=(e._tauntT==null?2:e._tauntT)-dt;   // 戰鬥中嗆聲（講更勤）
+          if(e._tauntT<=0){ e._tauntT=2.2+Math.random()*2; floatText(e.mesh.position,DRAGON_TAUNTS[Math.floor(Math.random()*DRAGON_TAUNTS.length)],'#ff7a4a'); }
           // 噴火攻擊（有預警可閃）
           if(e._fireT==null)e._fireT=4;
           e._fireT-=dt;
