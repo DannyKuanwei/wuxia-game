@@ -12,6 +12,26 @@ html,body{margin:0;height:100%;overflow:hidden;background:#040d0a;font-family:"M
 #app{position:fixed;inset:0}
 #flash{position:fixed;inset:0;background:#ff2d2d;opacity:0;pointer-events:none;z-index:55}
 #scnfade{position:fixed;inset:0;background:#000;opacity:0;pointer-events:none;z-index:120;transition:opacity .5s;display:flex;align-items:center;justify-content:center;color:#e8c87a;font-size:26px;letter-spacing:6px;font-family:"KaiTi","標楷體",serif}
+#mpBtn{position:fixed;top:10px;left:50%;transform:translateX(-50%);z-index:60;background:rgba(43,122,75,.92);color:#fff;border:2px solid #6fae8f;border-radius:10px;padding:7px 14px;font-size:15px;font-family:inherit;cursor:pointer}
+#partyFrames{position:fixed;top:50px;left:10px;z-index:58;display:flex;flex-direction:column;gap:6px;pointer-events:none}
+.pf{background:rgba(20,28,22,.82);border:1px solid #6fae8f;border-radius:8px;padding:5px 8px;width:150px}
+.pf .pfn{font-size:12px;color:#e8e0c8;display:flex;justify-content:space-between}
+.pf .pfrole{font-size:10px;opacity:.8}
+.pf .pfbar{height:8px;background:#3a1414;border-radius:4px;margin-top:3px;overflow:hidden}
+.pf .pfhp{height:100%;background:linear-gradient(90deg,#3fd35a,#7ef0a0);transform-origin:left;transition:transform .15s}
+.pf .pfmp{height:4px;background:#1a2a55;border-radius:3px;margin-top:2px;overflow:hidden}
+.pf .pfmpf{height:100%;background:#5a8aff;transform-origin:left}
+#mpModal{position:fixed;inset:0;z-index:130;background:rgba(0,0,0,.65);display:flex;align-items:center;justify-content:center}
+.mpcard{background:#1c2620;border:2px solid #6fae8f;border-radius:16px;padding:22px;width:300px;max-width:92vw;text-align:center;color:#e8e0c8}
+.mpcard h2{margin:0 0 12px;font-size:20px;color:#fff}
+.mps{font-size:13px;color:#9ad8b0;margin-bottom:14px;word-break:break-all}
+.mpbig{display:block;width:100%;margin:6px 0;padding:11px;border-radius:10px;border:none;background:#2b7a4b;color:#fff;font-size:15px;font-family:inherit;cursor:pointer}
+.mpbig.demo{background:#5a4a7a}
+.mpor{font-size:12px;opacity:.6;margin:8px 0}
+.mpjoin{display:flex;gap:6px}
+.mpjoin input{flex:1;padding:10px;border-radius:8px;border:1px solid #6fae8f;background:#0e1512;color:#fff;font-size:16px;text-transform:uppercase;text-align:center;letter-spacing:3px}
+.mpjoin button{padding:10px 14px;border-radius:8px;border:none;background:#2b7a4b;color:#fff;font-family:inherit;cursor:pointer}
+.mpx{margin-top:14px;background:none;border:none;color:#9aa;cursor:pointer;font-size:13px}
 #flash.on{animation:fa .3s ease}
 @keyframes fa{0%{opacity:0}30%{opacity:.38}100%{opacity:0}}
 
@@ -342,6 +362,21 @@ body.touch #ultBtn{right:16px;bottom:270px}
 <div id="bossBar"><div class="bn" id="bossName">賊首</div><div class="bh"><span id="bossFill" style="transform:scaleX(1)"></span></div></div>
 <div id="skillCdRing"><svg viewBox="0 0 42 42"><circle cx="21" cy="21" r="19" id="cdCircle"/></svg></div>
 
+<!-- 多人組隊 -->
+<button id="mpBtn" style="display:none" onclick="window.mpOpen&&mpOpen()">🤝 組隊</button>
+<div id="partyFrames"></div>
+<div id="mpModal" style="display:none">
+  <div class="mpcard">
+    <h2>🤝 組隊（2–3 人）</h2>
+    <div id="mpStatus" class="mps">尚未連線</div>
+    <button class="mpbig" onclick="window.mpHost&&mpHost()">開新隊伍（產生房號）</button>
+    <div class="mpor">— 或 —</div>
+    <div class="mpjoin"><input id="mpCode" maxlength="6" placeholder="輸入 6 碼房號" autocomplete="off"><button onclick="window.mpJoin&&mpJoin()">加入</button></div>
+    <button class="mpbig demo" onclick="window.mpDemo&&mpDemo()">👻 召喚 demo 隊友（本機預覽）</button>
+    <button class="mpx" onclick="window.mpClose&&mpClose()">✕ 關閉</button>
+  </div>
+</div>
+
 <!-- 開場劇情 -->
 <div id="introOverlay">
   <div id="introSkip">跳過 ▶▶</div>
@@ -427,7 +462,7 @@ const $    = id => document.getElementById(id);
 const rand = (a,b) => Math.floor(a+Math.random()*(b-a+1));
 const dist2= (a,b) => Math.hypot(a.position.x-b.position.x,a.position.z-b.position.z);
 const clamp= (v,a,b) => Math.max(a,Math.min(b,v));
-function showHUD(){['minimap','wanted','topright','playerHud','hotbar','bottomleft','hint','xhair','questPanel','skillCdRing','ultBtn'].forEach(id=>$(id).style.display='');}
+function showHUD(){['minimap','wanted','topright','playerHud','hotbar','bottomleft','hint','xhair','questPanel','skillCdRing','ultBtn'].forEach(id=>$(id).style.display='');$('mpBtn').style.display='block';}
 // ── 觸控裝置偵測 ──
 // 有滑鼠/觸控筆(fine pointer)就走電腦模式；純觸控(只有 coarse)才開手機 UI
 const IS_TOUCH = matchMedia('(pointer:coarse)').matches && !matchMedia('(pointer:fine)').matches;
@@ -2008,6 +2043,87 @@ function gameOver(){
   $('goScreen').style.display='flex';
 }
 
+// ══════════ 多人組隊（Supabase Realtime）第一步：連線＋看到彼此＋隊友血條 ══════════
+// 填入你的 Supabase 專案後即可真連線；未填則只有本機 demo 隊友可預覽
+const MP_URL='', MP_ANON='';
+const mp={active:false,code:'',isHost:false,supa:null,channel:null,me:null,peers:new Map(),sendT:0};
+const ROLE_OF=c=>c==='knight'?'坦克':c==='healer'?'補師':'輸出';
+const CLS_COLOR={knight:0xe8c34a,sword:0x9aa6b2,assassin:0x9a6ad8,healer:0x4fd38a,archer:0xc09050};
+window.mpOpen =()=>{ if(mode!=='play'){floatText(hero.position,'先進入江湖再組隊','#aaa');return;} $('mpModal').style.display='flex'; $('mpStatus').textContent=mp.active?('已在隊伍　房號：'+mp.code):(MP_URL?'尚未連線':'⚠ 尚未設定 Supabase（可先用 demo 隊友預覽）'); };
+window.mpClose=()=>{ $('mpModal').style.display='none'; };
+function mpCode(){ const s='ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; let c=''; for(let i=0;i<6;i++)c+=s[Math.floor(Math.random()*s.length)]; return c; }
+function makePeerAvatar(cls,name){
+  const g=new THREE.Group();
+  const col=CLS_COLOR[cls]||0x88aa88;
+  const body=new THREE.Mesh(new THREE.CapsuleGeometry(.42,.9,4,8),new THREE.MeshStandardMaterial({color:col,roughness:.7}));body.position.y=1.0;body.castShadow=true;g.add(body);
+  const head=new THREE.Mesh(new THREE.SphereGeometry(.32,12,12),new THREE.MeshStandardMaterial({color:0xe6b88f,roughness:.8}));head.position.y=1.85;g.add(head);
+  // 名牌
+  const cv=document.createElement('canvas');cv.width=256;cv.height=64;const c=cv.getContext('2d');
+  c.fillStyle='#fff';c.font='bold 34px "Microsoft JhengHei",sans-serif';c.textAlign='center';c.textBaseline='middle';
+  c.lineWidth=5;c.strokeStyle='#000';c.strokeText(name,128,32);c.fillText(name,128,32);
+  const tag=new THREE.Sprite(new THREE.SpriteMaterial({map:new THREE.CanvasTexture(cv),transparent:true}));tag.scale.set(2.4,.6,1);tag.position.y=2.6;g.add(tag);
+  const bar=mkBar();bar.position.y=2.25;g.add(bar);drawBar(bar,1);
+  scene.add(g);
+  return {group:g,hpbar:bar};
+}
+function addPeer(id,info){
+  if(mp.peers.has(id)||id===(mp.me&&mp.me.id))return;
+  const av=makePeerAvatar(info.cls,info.name||'隊友');
+  const sx=hero.position.x+rand(-4,4),sz=hero.position.z+rand(-4,4);
+  av.group.position.set(sx,0,sz);
+  mp.peers.set(id,{id,name:info.name||'隊友',cls:info.cls,role:ROLE_OF(info.cls),x:sx,z:sz,ry:0,tx:sx,tz:sz,tRy:0,hp:info.maxhp||120,maxhp:info.maxhp||120,mp:info.maxmp||60,maxmp:info.maxmp||60,demo:!!info.demo,...av});
+  rebuildFrames();
+}
+function removePeer(id){ const p=mp.peers.get(id); if(!p)return; scene.remove(p.group); mp.peers.delete(id); rebuildFrames(); }
+function onPeerState(s){
+  if(!s||s.id===(mp.me&&mp.me.id))return;
+  let p=mp.peers.get(s.id);
+  if(!p){ addPeer(s.id,{cls:s.cls,name:s.name,maxhp:s.maxhp,maxmp:s.maxmp}); p=mp.peers.get(s.id); if(!p)return; }
+  p.tx=s.x; p.tz=s.z; p.tRy=s.ry; p.hp=s.hp; p.maxhp=s.maxhp; p.mp=s.mp; p.maxmp=s.maxmp; p.anim=s.anim;
+}
+function rebuildFrames(){
+  const wrap=$('partyFrames'); wrap.innerHTML='';
+  for(const p of mp.peers.values()){
+    const d=document.createElement('div'); d.className='pf'; d.id='pf_'+p.id;
+    d.innerHTML='<div class="pfn"><span>'+p.name+'</span><span class="pfrole">'+p.role+'</span></div><div class="pfbar"><div class="pfhp"></div></div><div class="pfmp"><div class="pfmpf"></div></div>';
+    wrap.appendChild(d);
+  }
+}
+function mpTick(dt){
+  // 廣播自己（~10Hz）
+  mp.sendT-=dt;
+  if(mp.sendT<=0 && mp.channel){ mp.sendT=.1;
+    mp.channel.send({type:'broadcast',event:'state',payload:{id:mp.me.id,name:mp.me.name,cls:chosenClass,x:+hero.position.x.toFixed(2),z:+hero.position.z.toFixed(2),ry:+hero.rotation.y.toFixed(2),hp:Math.round(P.hp),maxhp:P.maxhp,mp:Math.round(P.mp),maxmp:P.maxmp,anim:heroMoving?(P.sprinting?'run':'walk'):'idle'}});
+  }
+  // 內插＋更新隊友 avatar/血條
+  for(const p of mp.peers.values()){
+    if(p.demo){ const a=t*.5; p.tx=hero.position.x+Math.cos(a)*5; p.tz=hero.position.z+Math.sin(a)*5; p.tRy=a+Math.PI/2; }
+    p.x+=(p.tx-p.x)*Math.min(1,dt*10); p.z+=(p.tz-p.z)*Math.min(1,dt*10);
+    let dr=p.tRy-p.ry; while(dr>Math.PI)dr-=2*Math.PI; while(dr<-Math.PI)dr+=2*Math.PI; p.ry+=dr*Math.min(1,dt*10);
+    p.group.position.set(p.x,0,p.z); p.group.rotation.y=p.ry;
+    drawBar(p.hpbar,Math.max(0,p.hp/p.maxhp));
+    const fr=$('pf_'+p.id); if(fr){ fr.querySelector('.pfhp').style.transform='scaleX('+Math.max(0,p.hp/p.maxhp)+')'; fr.querySelector('.pfmpf').style.transform='scaleX('+Math.max(0,p.mp/p.maxmp)+')'; }
+  }
+}
+window.mpDemo=()=>{ mp.active=true; if(!mp.me)mp.me={id:'me',name:'我'}; addPeer('demo1',{cls:'healer',name:'藥師·小芳',maxhp:120,demo:true}); $('mpStatus').textContent='已召喚 demo 隊友（本機預覽，非真連線）'; floatText(hero.position,'demo 隊友已加入！','#9ad8b0'); setTimeout(mpClose,700); };
+async function mpConnect(code,isHost){
+  if(!MP_URL||!MP_ANON){ $('mpStatus').textContent='⚠ 尚未設定 Supabase，無法真連線（可用 demo 隊友）'; return; }
+  $('mpStatus').textContent='連線中…';
+  try{
+    const { createClient } = await import('https://esm.sh/@supabase/supabase-js@2');
+    mp.supa=createClient(MP_URL,MP_ANON);
+    mp.me={id:'p'+Math.random().toString(36).slice(2,8),name:(chosenClass==='knight'?'大俠':chosenClass==='healer'?'藥師':'少俠')};
+    mp.code=code; mp.isHost=isHost;
+    const ch=mp.supa.channel('party:'+code,{config:{broadcast:{self:false},presence:{key:mp.me.id}}});
+    ch.on('broadcast',{event:'state'},({payload})=>onPeerState(payload));
+    ch.on('presence',{event:'leave'},({key})=>removePeer(key));
+    ch.subscribe(async st=>{ if(st==='SUBSCRIBED'){ await ch.track({name:mp.me.name,cls:chosenClass}); mp.active=true; $('mpStatus').textContent='已加入　房號：'+code+'（把房號給朋友）'; floatText(hero.position,'已加入隊伍 '+code,'#9ad8b0'); setTimeout(mpClose,900); } });
+    mp.channel=ch;
+  }catch(e){ $('mpStatus').textContent='連線失敗：'+e.message; }
+}
+window.mpHost=()=>{ const c=mpCode(); mpConnect(c,true); };
+window.mpJoin=()=>{ const c=($('mpCode').value||'').toUpperCase().trim(); if(c.length!==6){$('mpStatus').textContent='請輸入 6 碼房號';return;} mpConnect(c,false); };
+
 // ── loop ──
 const clock=new THREE.Clock();let t=0,walkPhase=0,heroMoving=false,hudTimer=0;
 let camOrbit=0;
@@ -2203,6 +2319,7 @@ function animate(){
       else playAnim('idle');
     }
   }
+  if(mp.active) mpTick(dt);   // 多人：廣播自己＋內插隊友
   for(let i=floaters.length-1;i>=0;i--){const f=floaters[i];f.life-=dt;f.sp.position.y+=dt*1.7;f.sp.material.opacity=Math.max(0,f.life);if(f.life<=0){scene.remove(f.sp);floaters.splice(i,1);}}
   for(let i=rings.length-1;i>=0;i--){const r=rings[i];r.life-=dt;const k=1-r.life/.55;r.r.scale.setScalar(.5+k*6);r.r.material.opacity=r.life/.55;if(r.life<=0){scene.remove(r.r);rings.splice(i,1);}}
   for(let i=slashes.length-1;i>=0;i--){const s=slashes[i];s.life-=dt;const p=1-s.life/.22;s.m.scale.setScalar(.85+p*.55);s.m.rotation.y=-.18+p*.38;s.m.material.opacity=Math.max(0,s.life/.22)*.95;if(s.life<=0){hero.remove(s.m);s.m.material.dispose();slashes.splice(i,1);}}
