@@ -377,10 +377,10 @@ body.touch #ultBtn{right:16px;bottom:270px}
 </div>
 <div id="interactPrompt"></div>
 <div id="zoneName"></div>
-<div id="dialogue" style="display:none">
+<div id="dialogue" style="display:none" onclick="window.closeDlg&&closeDlg()">
   <div class="cardhead"><img id="dlgAvatar" class="avatar" style="display:none"><div class="dn" id="dlgName"></div></div>
   <div class="dt" id="dlgText"></div>
-  <div class="dc">[ E / Enter 繼續 ]</div>
+  <div class="dc" id="dlgCont">[ E / Enter 繼續 ]</div>
 </div>
 <div id="shop" style="display:none">
   <h2>🏪 江湖市集</h2>
@@ -1977,8 +1977,9 @@ function portraitFor(n){
   return null;
 }
 function setAvatar(id,name){const el=$(id);if(!el)return;const k=portraitFor(name);if(k){el.src='portraits/'+k+'.png';el.style.display='';}else{el.style.display='none';}}
-function showDlg(name,text){setAvatar('dlgAvatar',name);$('dlgName').textContent=name;$('dlgText').textContent=text;$('dialogue').style.display='block';inDlg=true;}
+function showDlg(name,text){setAvatar('dlgAvatar',name);$('dlgName').textContent=name;$('dlgText').textContent=text;$('dialogue').style.display='block';inDlg=true;const c=$('dlgCont');if(c)c.textContent=IS_TOUCH?'👆 點一下繼續':'[ E / Enter 繼續 ]';}
 function closeDlg(){$('dialogue').style.display='none';inDlg=false;}
+window.closeDlg=closeDlg;
 window.closeShop=()=>{$('shop').style.display='none';inDlg=false;};
 window.buyItem=id=>{
   const cost={pot:20,mppot:15,sword2:80,bow:60}[id];
