@@ -11,6 +11,7 @@
 html,body{margin:0;height:100%;overflow:hidden;background:#040d0a;font-family:"Microsoft JhengHei",system-ui,sans-serif;touch-action:none;-webkit-user-select:none;user-select:none}
 #app{position:fixed;inset:0}
 #flash{position:fixed;inset:0;background:#ff2d2d;opacity:0;pointer-events:none;z-index:55}
+#scnfade{position:fixed;inset:0;background:#000;opacity:0;pointer-events:none;z-index:120;transition:opacity .5s;display:flex;align-items:center;justify-content:center;color:#e8c87a;font-size:26px;letter-spacing:6px;font-family:"KaiTi","標楷體",serif}
 #flash.on{animation:fa .3s ease}
 @keyframes fa{0%{opacity:0}30%{opacity:.38}100%{opacity:0}}
 
@@ -245,6 +246,7 @@ body.touch #ultBtn{right:16px;bottom:270px}
 <body>
 <div id="app"></div>
 <div id="flash"></div>
+<div id="scnfade"></div>
 
 <!-- 載入畫面 -->
 <div id="loadScreen">
@@ -560,6 +562,54 @@ home(13,-56,10,8,5,3.4,[
   {dx: 3,dz:-1.8,name:'過期的靈丹',     color:0x88aaff,mp:1,xp:6},
   {dx: 0,dz: 2.2,name:'祖傳內功秘笈',   color:0xff66cc,xp:90},
 ]);
+
+// ══════════ 十里坡（仙劍致敬・練功聖地）══════════
+// 遠方獨立場景；經由路標傳送往返。滿地弱怪可刷等級。
+const SLP={x:150,z:-20};   // 十里坡中心
+(function buildShiliPo(){
+  // 草坡地面
+  const grass=new THREE.Mesh(new THREE.CircleGeometry(46,40),new THREE.MeshStandardMaterial({color:0x6fae55,roughness:1}));
+  grass.rotation.x=-Math.PI/2; grass.position.set(SLP.x,.02,SLP.z); grass.receiveShadow=true; scene.add(grass);
+  // 緩坡（幾個矮丘）
+  for(let i=0;i<7;i++){ const a=Math.random()*6.28,r=10+Math.random()*30; mtn(SLP.x+Math.cos(a)*r,SLP.z+Math.sin(a)*r,6+Math.random()*10,5+Math.random()*7); }
+  for(let i=0;i<14;i++){ const a=Math.random()*6.28,r=6+Math.random()*38; bamboo(SLP.x+Math.cos(a)*r,SLP.z+Math.sin(a)*r); }
+  for(let i=0;i<10;i++){ const a=Math.random()*6.28,r=8+Math.random()*34; rock(SLP.x+Math.cos(a)*r,SLP.z+Math.sin(a)*r,.6+Math.random()*.8); }
+  road(SLP.x,SLP.z+44,SLP.x,SLP.z-44,4);
+  // 大路標
+  const sign=new THREE.Group(); sign.position.set(SLP.x-2,0,SLP.z+34);
+  const post=new THREE.Mesh(new THREE.CylinderGeometry(.16,.16,4,6),new THREE.MeshStandardMaterial({color:0x6a4a26}));post.position.y=2;sign.add(post);
+  const board=new THREE.Mesh(new THREE.BoxGeometry(3.4,1.4,.18),new THREE.MeshStandardMaterial({color:0xcdb083}));board.position.y=3.2;sign.add(board);
+  scene.add(sign);
+  makeSignText(SLP.x-2,3.2,SLP.z+34.2,'十里坡');
+}());
+// 在告示牌上貼字（用 sprite 畫文字）
+function makeSignText(x,y,z,txt){
+  const cv=document.createElement('canvas');cv.width=256;cv.height=110;const c=cv.getContext('2d');
+  c.fillStyle='#4a2f17';c.font='bold 70px "KaiTi","標楷體",serif';c.textAlign='center';c.textBaseline='middle';c.fillText(txt,128,55);
+  const tx=new THREE.CanvasTexture(cv);const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:tx,transparent:true}));
+  sp.scale.set(3.2,1.35,1);sp.position.set(x,y,z);scene.add(sp);
+}
+// ── 場景傳送門（路標）──
+const portals=[];
+function makePortal(x,z,tx,tz,label){
+  const g=new THREE.Group(); g.position.set(x,0,z);
+  const pm=new THREE.MeshStandardMaterial({color:0x8a2a1a,roughness:.7,emissive:0x551100,emissiveIntensity:.35});
+  for(const px of [-1.4,1.4]){const p=new THREE.Mesh(new THREE.CylinderGeometry(.18,.2,4,8),pm);p.position.set(px,2,0);g.add(p);}
+  const top=new THREE.Mesh(new THREE.BoxGeometry(3.7,.42,.5),pm);top.position.set(0,3.9,0);g.add(top);
+  const glow=new THREE.PointLight(0xffaa44,.9,7);glow.position.set(0,2.6,0);g.add(glow);
+  scene.add(g);
+  portals.push({group:g,x,z,tx,tz,label,glow});
+}
+makePortal(26,-42, SLP.x, SLP.z+38, '往十里坡（練功聖地）');   // 村口 → 十里坡
+makePortal(SLP.x, SLP.z+42, 26,-40, '回北村・桃源');           // 十里坡 → 村口
+let _fading=false;
+function fadeTeleport(tx,tz,label){
+  if(_fading)return; _fading=true;
+  const f=$('scnfade'); f.textContent='⟡ '+(label||'移動中')+' ⟡'; f.style.opacity=1;
+  setTimeout(()=>{ hero.position.set(tx,0,tz); hero.rotation.y=Math.PI; lastCombatTime=99; curZone=''; updateZone();
+    setTimeout(()=>{ f.style.opacity=0; _fading=false; },350);
+  },520);
+}
 function stall(x,z,ry){
   const g=new THREE.Group(),pm=new THREE.MeshStandardMaterial({color:0x7a5a30});
   for(const[px,pz]of[[-1.5,-1],[1.5,-1],[-1.5,1],[1.5,1]]){const p=new THREE.Mesh(new THREE.CylinderGeometry(.12,.12,2.5,6),pm);p.position.set(px,1.25,pz);g.add(p);}
@@ -1165,6 +1215,13 @@ const NPC_DEFS=[
   {type:'hermit',  name:'武林高手',color:0x3a3a3a,pos:[68,-12],  hp:220,atk:30,spd:3.8,range:2.4,cd:0.9,patrol:[[68,-6],[68,-22]],model:'models/npc/master.glb',mh:1.25},
   {type:'cultboss',name:'巨龍',color:0x8a1a1a,pos:[0,72],    hp:CONFIG.boss.maxHp,atk:18,spd:1.8,range:3.4,cd:1.8,patrol:null,model:'models/dragon/dragon.glb',mh:3.6},
   {type:'civilian',name:'老翁',    color:0xb0a080,pos:[-50,6],   hp:35, atk:2, spd:1.4,range:1.5,cd:2.5,patrol:null,model:'models/villager/man.glb',mh:1.05,dialogue:['古寺清淨，少俠莫要喧嘩。','佛法無邊，回頭是岸哪……']},
+  // ── 十里坡弱怪（刷等用，會重生）──
+  {type:'bandit',name:'練功木人',  color:0x9a7a40,pos:[SLP.x-12,SLP.z-6], hp:30,atk:6, spd:2.6,range:1.9,cd:1.6,patrol:[[SLP.x-12,SLP.z-10],[SLP.x-12,SLP.z+4]],model:'models/bandit/walk.glb',mh:1.05},
+  {type:'bandit',name:'稻草人',    color:0xb09030,pos:[SLP.x+8,SLP.z-10], hp:26,atk:5, spd:2.4,range:1.9,cd:1.7,patrol:[[SLP.x+4,SLP.z-12],[SLP.x+12,SLP.z-6]],model:'models/bandit/walk.glb',mh:1.0},
+  {type:'bandit',name:'迷途毛賊',  color:0x6a4a2a,pos:[SLP.x+14,SLP.z+8], hp:38,atk:8, spd:3.2,range:2.0,cd:1.4,patrol:[[SLP.x+10,SLP.z+4],[SLP.x+18,SLP.z+12]],model:'models/bandit/walk.glb',mh:1.1},
+  {type:'bandit',name:'十里坡野貓',color:0x88684a,pos:[SLP.x-8,SLP.z+12], hp:20,atk:5, spd:4.0,range:1.8,cd:1.2,patrol:[[SLP.x-12,SLP.z+8],[SLP.x-4,SLP.z+16]],model:'models/bandit/walk.glb',mh:0.9},
+  {type:'bandit',name:'復活的史萊姆',color:0x55a060,pos:[SLP.x+2,SLP.z+2], hp:28,atk:6, spd:2.0,range:1.8,cd:1.8,patrol:null,model:'models/bandit/walk.glb',mh:0.95},
+  {type:'bandit',name:'劍奴',      color:0x556070,pos:[SLP.x-16,SLP.z+2], hp:44,atk:9, spd:3.0,range:2.1,cd:1.4,patrol:[[SLP.x-18,SLP.z-2],[SLP.x-14,SLP.z+8]],model:'models/bandit/walk.glb',mh:1.15},
 ];
 function mkNPC(color){
   const g=new THREE.Group(),mat=new THREE.MeshStandardMaterial({color,roughness:.8}),skin=new THREE.MeshStandardMaterial({color:0xe6b88f,roughness:.8});
@@ -1550,13 +1607,14 @@ function refreshHud(){
   $('coinsTxt').textContent=P.coins;$('potCnt').textContent=P.potions;$('mpPotCnt').textContent=P.mmpotions;
   $('slot0').textContent=P.weapon==='bow'?'🏹':P.weapon==='sword2'?'🗡️':P.weapon==='bigsword'?'🗡️':'⚔️';
 }
-const ZONES=[{name:'竹林・初境',x:0,z:0,r:32,lv:1},{name:'北村・桃源',x:0,z:-52,r:26,lv:1},{name:'東嶺・深山',x:68,z:-12,r:32,lv:6},{name:'南境・匪巢',x:0,z:36,r:28,lv:3},{name:'巨龍山洞',x:0,z:72,r:18,lv:7},{name:'西寺・古剎',x:-55,z:2,r:22,lv:2}];
+const ZONES=[{name:'竹林・初境',x:0,z:0,r:32,lv:1},{name:'北村・桃源',x:0,z:-52,r:26,lv:1},{name:'東嶺・深山',x:68,z:-12,r:32,lv:6},{name:'南境・匪巢',x:0,z:36,r:28,lv:3},{name:'巨龍山洞',x:0,z:72,r:18,lv:7},{name:'西寺・古剎',x:-55,z:2,r:22,lv:2},{name:'十里坡・練功聖地',x:SLP.x,z:SLP.z,r:46,lv:1}];
 let curZone='';
 function updateZone(){
   for(const z of ZONES){if(Math.hypot(hero.position.x-z.x,hero.position.z-z.z)<z.r){if(curZone!==z.name){curZone=z.name;
     const under=z.lv&&P.level<z.lv;
     const zn=$('zoneName');zn.textContent=z.name+(z.lv>1?'（建議 Lv'+z.lv+'）':'');zn.style.opacity=1;zn.style.color=under?'#ff7a5a':'';$('zoneTxt').textContent=z.name;setTimeout(()=>zn.style.opacity=0,2500);
     if(under){ floatText(hero.position,'⚠ 等級不足！建議 Lv'+z.lv+'（你 Lv'+P.level+'）這裡的怪會很硬','#ff7a5a'); }
+    if(z.name.indexOf('十里坡')===0 && !P._slpSeen){ P._slpSeen=true; setTimeout(()=>floatText(hero.position,'（傳說當年有人在這裡，一路打到變成…「十里坡劍神」。）','#cfe7d0'),700); }
   }return;}}
   if(curZone!=='曠野'){curZone='曠野';$('zoneTxt').textContent='江湖曠野';}
 }
@@ -1698,6 +1756,8 @@ window.buyItem=id=>{
 };
 function interact(){
   if(inDlg){closeDlg();return;}
+  // 傳送門
+  for(const pt of portals){const d=Math.hypot(hero.position.x-pt.x,hero.position.z-pt.z);if(d<2.8){fadeTeleport(pt.tx,pt.tz,pt.label);return;}}
   // 地上的東西優先撿
   for(const pk of pickups){if(pk.taken)continue;const d=Math.hypot(hero.position.x-pk.group.position.x,hero.position.z-pk.group.position.z);if(d<1.8){grabPickup(pk);return;}}
   // 寶箱
@@ -2041,7 +2101,8 @@ function animate(){
     for(const pk of pickups){ if(pk.taken)continue; pk.box.position.y=.55+Math.sin(t*3+pk.bob)*.12; pk.box.rotation.y+=dt*1.6; }
     let near=false;
     const IKEY=IS_TOUCH?'點 💬':'[ E ]';
-    for(const pk of pickups){if(!pk.taken&&Math.hypot(hero.position.x-pk.group.position.x,hero.position.z-pk.group.position.z)<1.8){$('interactPrompt').style.display='block';$('interactPrompt').textContent=IKEY+' 撿「'+pk.def.name+'」';near=true;break;}}
+    for(const pt of portals){if(Math.hypot(hero.position.x-pt.x,hero.position.z-pt.z)<2.8){$('interactPrompt').style.display='block';$('interactPrompt').textContent=IKEY+' '+pt.label;near=true;break;}}
+    if(!near){for(const pk of pickups){if(!pk.taken&&Math.hypot(hero.position.x-pk.group.position.x,hero.position.z-pk.group.position.z)<1.8){$('interactPrompt').style.display='block';$('interactPrompt').textContent=IKEY+' 撿「'+pk.def.name+'」';near=true;break;}}}
     if(!near){for(const c of chests){if(!c.open&&Math.hypot(hero.position.x-c.group.position.x,hero.position.z-c.group.position.z)<2.5){$('interactPrompt').style.display='block';$('interactPrompt').textContent=IKEY+' 開啟 '+c.def.label;near=true;break;}}}
     if(!near){for(const e of npcs){if(!e.alive||!e.def.dialogue)continue;if(dist2(hero,e.mesh)<4.0){$('interactPrompt').style.display='block';$('interactPrompt').textContent=IKEY+' 與 '+e.def.name+' 互動';near=true;break;}}}
     if(!near) $('interactPrompt').style.display='none';
