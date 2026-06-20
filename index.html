@@ -14,6 +14,10 @@ html,body{margin:0;height:100%;overflow:hidden;background:#040d0a;font-family:"M
 #scnfade{position:fixed;inset:0;background:#000;opacity:0;pointer-events:none;z-index:120;transition:opacity .5s;display:flex;align-items:center;justify-content:center;color:#e8c87a;font-size:26px;letter-spacing:6px;font-family:"KaiTi","標楷體",serif}
 #mpBtn{position:fixed;top:10px;left:50%;transform:translateX(-50%);z-index:60;background:rgba(43,122,75,.92);color:#fff;border:2px solid #6fae8f;border-radius:10px;padding:7px 14px;font-size:15px;font-family:inherit;cursor:pointer}
 #bagBtn{position:fixed;top:10px;left:calc(50% + 78px);z-index:60;background:rgba(90,74,42,.92);color:#fff;border:2px solid #c8a86a;border-radius:10px;padding:7px 14px;font-size:15px;font-family:inherit;cursor:pointer}
+#menuBtn{position:fixed;top:10px;right:calc(50% + 56px);z-index:60;background:rgba(43,78,122,.92);color:#fff;border:2px solid #6f93ae;border-radius:10px;padding:7px 14px;font-size:15px;font-family:inherit;cursor:pointer}
+#saveModal{position:fixed;inset:0;z-index:135;background:rgba(0,0,0,.66);display:flex;align-items:center;justify-content:center}
+#saveCodeBox{display:none;width:100%;box-sizing:border-box;height:70px;margin:6px 0;padding:8px;border-radius:8px;border:1px solid #6fae8f;background:#0e1512;color:#bfe;font-size:11px;font-family:monospace;resize:none;word-break:break-all}
+#saveImportBox{flex:1;padding:10px;border-radius:8px;border:1px solid #6fae8f;background:#0e1512;color:#fff;font-size:13px;text-transform:none;letter-spacing:normal;text-align:left}
 #saveToast{position:fixed;top:84px;right:14px;z-index:61;background:rgba(43,122,75,.92);color:#fff;border-radius:8px;padding:6px 12px;font-size:13px;opacity:0;transition:opacity .3s;pointer-events:none}
 #saveToast.show{opacity:1}
 #bagModal{position:fixed;inset:0;z-index:130;background:rgba(0,0,0,.65);display:flex;align-items:center;justify-content:center}
@@ -329,6 +333,7 @@ body.touch #ultBtn{right:16px;bottom:270px}
   </div>
   <button id="startBtn" onclick="if(window._doStart)window._doStart()">踏入江湖 ▶</button>
   <button id="continueBtn" style="display:none;margin-top:10px;background:#2b7a4b" onclick="if(window._loadGame)window._loadGame()">繼續上次冒險 ⤺</button>
+  <button id="importBtn" style="margin-top:10px;background:#2b4e7a" onclick="window.saveOpen&&saveOpen()">📥 匯入存檔碼</button>
 </div>
 
 <!-- 死亡畫面 -->
@@ -384,6 +389,23 @@ body.touch #ultBtn{right:16px;bottom:270px}
 <div id="skillCdRing"><svg viewBox="0 0 42 42"><circle cx="21" cy="21" r="19" id="cdCircle"/></svg></div>
 
 <div id="saveToast">💾 已存檔</div>
+
+<!-- 存檔選單 -->
+<button id="menuBtn" style="display:none" onclick="window.saveOpen&&saveOpen()">💾 存檔</button>
+<div id="saveModal" style="display:none">
+  <div class="mpcard">
+    <h2>💾 存檔</h2>
+    <div id="saveMsg" class="mps">自動存檔已開啟（每 30 秒／任務檢查點）</div>
+    <button class="mpbig" onclick="window.saveNow&&saveNow()">💾 立即存檔</button>
+    <button class="mpbig" style="background:#2b4e7a" onclick="window.saveExport&&saveExport()">📤 匯出存檔碼（換裝置用）</button>
+    <textarea id="saveCodeBox" placeholder="存檔碼會出現在這裡" readonly></textarea>
+    <button id="saveCopyBtn" class="mpx" style="display:none" onclick="window.saveCopyCode&&saveCopyCode()">📋 複製存檔碼</button>
+    <div class="mpor">— 換裝置 / 還原 —</div>
+    <div class="mpjoin"><input id="saveImportBox" placeholder="貼上存檔碼" autocomplete="off"><button onclick="window.saveImport&&saveImport()">📥 匯入</button></div>
+    <button class="mpx" style="color:#e89a9a" onclick="window.saveDelete&&saveDelete()">🗑 刪除存檔（重新開始）</button>
+    <button class="mpx" onclick="window.saveClose&&saveClose()">✕ 關閉</button>
+  </div>
+</div>
 
 <!-- 背包/裝備 -->
 <button id="bagBtn" style="display:none" onclick="window.bagOpen&&bagOpen()">🎒 裝備</button>
@@ -496,7 +518,7 @@ const $    = id => document.getElementById(id);
 const rand = (a,b) => Math.floor(a+Math.random()*(b-a+1));
 const dist2= (a,b) => Math.hypot(a.position.x-b.position.x,a.position.z-b.position.z);
 const clamp= (v,a,b) => Math.max(a,Math.min(b,v));
-function showHUD(){['minimap','wanted','topright','playerHud','hotbar','bottomleft','hint','xhair','questPanel','skillCdRing','ultBtn'].forEach(id=>$(id).style.display='');$('mpBtn').style.display='block';$('bagBtn').style.display='block';if(typeof refreshBagBtn==='function')refreshBagBtn();}
+function showHUD(){['minimap','wanted','topright','playerHud','hotbar','bottomleft','hint','xhair','questPanel','skillCdRing','ultBtn'].forEach(id=>$(id).style.display='');$('mpBtn').style.display='block';$('bagBtn').style.display='block';$('menuBtn').style.display='block';if(typeof refreshBagBtn==='function')refreshBagBtn();}
 // ── 觸控裝置偵測 ──
 // 有滑鼠/觸控筆(fine pointer)就走電腦模式；純觸控(只有 coarse)才開手機 UI
 const IS_TOUCH = matchMedia('(pointer:coarse)').matches && !matchMedia('(pointer:fine)').matches;
@@ -950,14 +972,13 @@ function saveGame(toast){
   }catch(e){}
 }
 function hasSave(){ try{return !!localStorage.getItem(SAVE_KEY);}catch(e){return false;} }
-window._loadGame=()=>{
-  let data; try{data=JSON.parse(localStorage.getItem(SAVE_KEY));}catch(e){}
-  if(!data||!data.cls){return;}
+function applySaveData(data){
+  if(!data||!data.cls){return false;}
   chosenClass=data.cls;
   const cls=CLASSES[chosenClass]; Object.assign(P,cls);   // 先套基礎，再覆蓋存檔
   Object.assign(P,data.P);
   _SPEED=CLASS_SPEED[chosenClass]||6.5; _SPRINT=_SPEED*1.55;
-  data.quests.forEach((s,i)=>{ if(QUESTS[i]){QUESTS[i].done=s.done;QUESTS[i].claimed=s.claimed;} });
+  (data.quests||[]).forEach((s,i)=>{ if(QUESTS[i]){QUESTS[i].done=s.done;QUESTS[i].claimed=s.claimed;} });
   talkedNpcs.clear(); (data.talked||[]).forEach(n=>talkedNpcs.add(n));
   $('heroName').textContent=data.heroName||'❤ 少俠';
   $('charCreate').style.display='none';
@@ -967,7 +988,41 @@ window._loadGame=()=>{
   showHUD(); mode='play'; refreshHud(); updateNameBanner();
   startNextQuest();
   floatText(hero.position,'讀取進度，繼續冒險！','#8fe6b0');
+  return true;
+}
+window._loadGame=()=>{
+  let data; try{data=JSON.parse(localStorage.getItem(SAVE_KEY));}catch(e){}
+  applySaveData(data);
 };
+// 匯出/匯入存檔碼（base64，可跨裝置帶著走，繞過 localStorage 綁裝置限制）
+function exportSave(){
+  if(mode==='play'&&chosenClass) saveGame(false);   // 先把最新狀態寫進去
+  const raw=localStorage.getItem(SAVE_KEY); if(!raw) return '';
+  try{ return btoa(unescape(encodeURIComponent(raw))); }catch(e){ return ''; }
+}
+function importSave(code){
+  code=(code||'').trim(); if(!code) return false;
+  let json; try{ json=decodeURIComponent(escape(atob(code))); }catch(e){ return false; }
+  let data; try{ data=JSON.parse(json); }catch(e){ return false; }
+  if(!data||!data.cls) return false;
+  try{ localStorage.setItem(SAVE_KEY,json); }catch(e){}
+  return data;
+}
+function deleteSave(){ try{ localStorage.removeItem(SAVE_KEY); }catch(e){} }
+// 存檔選單
+window.saveOpen=()=>{ $('saveModal').style.display='flex'; $('saveCodeBox').style.display='none'; $('saveCopyBtn').style.display='none';
+  $('saveMsg').textContent=(mode==='play')?'自動存檔已開啟（每 30 秒／任務檢查點）。也可在此手動操作：':'尚未進入遊戲——可在此貼上存檔碼匯入，或刪除舊存檔。'; };
+window.saveClose=()=>{ $('saveModal').style.display='none'; };
+window.saveNow=()=>{ if(mode!=='play'||!chosenClass){ $('saveMsg').textContent='⚠ 先進入江湖才能存檔'; return; } saveGame(true); $('saveMsg').textContent='✓ 已手動存檔　'+new Date().toLocaleTimeString(); };
+window.saveExport=()=>{ const code=exportSave(); if(!code){ $('saveMsg').textContent='⚠ 目前沒有可匯出的存檔（先進遊戲玩一下）'; return; }
+  const box=$('saveCodeBox'); box.style.display='block'; box.value=code; $('saveCopyBtn').style.display='block';
+  $('saveMsg').textContent='存檔碼已產生 → 複製貼到另一台裝置的「匯入」：'; box.focus(); box.select(); };
+window.saveCopyCode=()=>{ const v=$('saveCodeBox').value; if(navigator.clipboard&&v) navigator.clipboard.writeText(v).then(()=>{$('saveMsg').textContent='✓ 存檔碼已複製';}).catch(()=>{}); };
+window.saveImport=()=>{ const data=importSave($('saveImportBox').value); if(!data){ $('saveMsg').textContent='⚠ 存檔碼無效（請確認完整貼上，沒有缺字）'; return; }
+  $('saveModal').style.display='none'; applySaveData(data); };
+window.saveDelete=()=>{ if(!hasSave()){ $('saveMsg').textContent='目前沒有存檔可刪'; return; }
+  if(!confirm('確定刪除存檔？此動作無法復原。')) return; deleteSave();
+  const cb=$('continueBtn'); if(cb)cb.style.display='none'; $('saveMsg').textContent='🗑 存檔已刪除（重整頁面將從頭開始）'; };
 
 // ══════════ 《大俠崩吧》念名字破防 Boss 戰 ══════════
 // 所有可調數值集中於此
