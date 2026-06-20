@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+<title>Kuanwei 廢文產生器</title>
+<style>
+  :root{--bg:#0f1410;--card:#19211a;--line:#33402f;--gold:#e8c87a;--g:#7ee0a0;--t:#e8e6dc}
+  *{box-sizing:border-box}
+  body{margin:0;min-height:100vh;background:radial-gradient(1200px 600px at 50% -10%,#1c2a1e,#0f1410);
+       color:var(--t);font-family:"Noto Sans TC","Microsoft JhengHei",sans-serif;display:flex;flex-direction:column;align-items:center;padding:24px}
+  h1{font-size:22px;margin:8px 0 2px;color:#fff;letter-spacing:1px}
+  .sub{font-size:13px;opacity:.6;margin-bottom:18px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:18px;max-width:600px;width:100%;
+        padding:26px 24px;box-shadow:0 10px 40px rgba(0,0,0,.4)}
+  .head{display:flex;align-items:center;gap:10px;margin-bottom:14px}
+  .ava{width:42px;height:42px;border-radius:50%;background:linear-gradient(135deg,#3a7a4d,#2a5a8a);display:flex;align-items:center;justify-content:center;font-size:20px}
+  .name{font-weight:700;color:#fff}.name span{display:block;font-size:11px;opacity:.5;font-weight:400}
+  #out{font-size:17px;line-height:1.85;min-height:120px;white-space:pre-wrap;word-break:break-word}
+  .tags{margin-top:14px;font-size:12px;color:#6a8;opacity:.8}
+  .row{display:flex;gap:10px;max-width:600px;width:100%;margin-top:18px;flex-wrap:wrap}
+  button{flex:1;min-width:130px;padding:14px;border:none;border-radius:12px;font-size:16px;font-family:inherit;cursor:pointer;font-weight:700}
+  .b1{background:#2b7a4b;color:#fff}.b2{background:#2b4e7a;color:#fff}.b3{background:#5a4a2a;color:#fff}
+  button:active{transform:translateY(2px)}
+  .foot{font-size:11px;opacity:.4;margin-top:20px;text-align:center;max-width:600px}
+</style>
+</head>
+<body>
+  <h1>Kuanwei 廢文產生器</h1>
+  <div class="sub">句型 × 你的母題 × 金句隨機組合・你的數位語氣分身</div>
+  <div class="card">
+    <div class="head"><div class="ava">🧠</div><div class="name">陳冠瑋<span>剛剛 · 公開</span></div></div>
+    <div id="out">按下面的按鈕，生一篇你會發的廢文。</div>
+    <div class="tags" id="tags"></div>
+  </div>
+  <div class="row">
+    <button class="b1" onclick="gen('post')">🔄 生一篇廢文</button>
+    <button class="b2" onclick="gen('line')">💬 來一句嗆聲</button>
+    <button class="b3" onclick="copyOut()">📋 複製</button>
+  </div>
+  <div class="foot">純本地隨機組合，不用網路、不重複。模仿的是聲紋，不是本人。</div>
+
+<script>
+const pick=a=>a[Math.floor(Math.random()*a.length)];
+const TOPIC=['AI','教育','少子化','房市','股市','籃球','武俠','多巴胺','我執','蒙特梭利','情緒教育','效率','運動','創業','批判性思考','演算法','親子教養','時間管理','地緣政治','人生意義'];
+const OPEN=['雖然你沒問我，但我就是要說，','看新聞有感，','最近研究一輪，','說真的，','忙碌之餘想到一件事，','小弟有個不成熟的想法，','今天遇到一件小事，','我發現一件事，','先說結論，','講個可能政治不正確的，'];
+const TAKE=['{t}這件事，大家都看表面，本質其實是另一回事。','關於{t}，我的看法可能跟主流不一樣，但我還是要講。','很多人談{t}談得很熱，卻沒人問一個最基本的問題。','{t}的問題，從第一性原理拆下去就清楚了。','我對{t}一直有個跟別人不太一樣的觀察。','大家對{t}的焦慮，其實搞錯了方向。'];
+const FRAME=['從大腦發展的角度看，杏仁核在你還沒分析前就劫持了判斷。','這跟多巴胺的機制異曲同工——獲得了，然後呢？然後就沒有然後了。','本質上這是個「分割」的問題，智力就是把事情切開看清結構。','這跟武俠小說一樣，往下是為了往上，一開始就無敵後面就沒得看。','說穿了就是經濟學：誘因對了，行為自然就對了。','這跟蒙特梭利喚醒精神胚胎是同一回事，不是灌輸，是拆面具。','人類戴著面具自娛娛人，大梵天當年也是因為無聊把自己粉碎的。','AI 一年當好幾萬年用，我們站在它快速迭代的對立面其實很脆弱。'];
+const GOLD=['只教是非很容易，難的是讓人說得出為什麼。','垃圾進、垃圾出，危險的不是不會用，是勤勞卻不思考的人。','剝掉頭銜光環後，鏡子裡的你還剩什麼？','人在體制內，心可以在體制外。','被多巴胺掌控的人生，就像老鼠跑步機。','把別人的心放在心上就是仁，但過度在意就是內耗。','智力是手術刀，拿來切結構很好，拿去擁抱愛人就是災難。','外在價值驅使你向前，但臨終回放時只有內在價值能讓你沒有遺憾。'];
+const SELF=['（我就反骨）','（對，我就是這麼有責任感）','小弟差點哭暈在廁所。','你各位就靜靜看著我裝逼就好。','以上廢文一篇，當茶餘飯後。','講完了，計畫通。',''];
+const END=['樓下說幾%。','大家什麼時候覺得閾值到了？','你覺得做得到嗎？','點解，有人願意分享嗎？','要不然……','不認同也沒關係，願意看完的就是民主典範。','你怎麼看？'];
+const LINES=['注意看，這男人太狠了，不出意外的話馬上就要出意外。','獲得了，然後呢？那就沒有然後了。','我就反骨，別人出炸物我偏炒青菜。','打不過就加入他。','往下是為了往上。','要當怪咖，就當怪咖王。','在下好大一盤棋。','星數越少的診所往往不用等，計畫通。','人在體制內，心可以在體制外。','勤勞的笨蛋會把錯誤放大。'];
+
+function gen(mode){
+  const out=document.getElementById('out'), tg=document.getElementById('tags');
+  if(mode==='line'){ out.textContent=pick(LINES); tg.textContent=''; return; }
+  const t=pick(TOPIC);
+  let p=pick(OPEN)+pick(TAKE).replace('{t}',t);
+  if(Math.random()<0.75) p+='\n\n'+pick(FRAME);
+  if(Math.random()<0.7)  p+=' '+pick(GOLD);
+  const s=pick(SELF); if(s&&Math.random()<0.6) p+=' '+s;
+  p+='\n\n'+pick(END);
+  out.textContent=p;
+  tg.textContent='#'+t+' #廢文 #樓下說幾趴';
+}
+function copyOut(){ const t=document.getElementById('out').textContent; if(navigator.clipboard) navigator.clipboard.writeText(t); }
+gen('post');
+</script>
+</body>
+</html>
