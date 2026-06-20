@@ -833,6 +833,9 @@ let qteSeg=0,qteSegStarts=null;   // 三輪逼問：把巨龍名字切成3段，
 const ROUND_BARKS=['再說一次！先報前四個字——','大聲一點！中間那幾個字——','孤的全名是什麼——！（全部念對）'];
 // 教學關小怪招式的通用干擾字池
 const TUT_DISTRACT='刀劍拳掌腿斬劈刺踢打砍削挑撩崩轟爆旋飛天外仙橫豎錘鞭爪'.split('');
+// QTE 改成「兩個字一組」，干擾選項用差很多的日常詞，一眼就能分辨（也更好笑）
+function chunk2(arr){ const out=[]; for(let i=0;i<arr.length;i+=2) out.push(arr.slice(i,i+2).join('')); return out; }
+const WRONG_WORDS=['便當','馬桶','芭樂','滷蛋','沙發','拖鞋','插座','西瓜','奶茶','雞排','板凳','電視','口罩','膠帶','蘿蔔','麵包','鍵盤','蚊香','榴槤','salsa','原子筆','洗衣機'].filter(w=>w.length===2);
 let bossFailCount=0;   // 打巨龍破防連續失敗次數（連錯3次給撤退台階）
 const _shuf=a=>{a=a.slice();for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;};
 const qteWindow=i=>Math.max(CONFIG.nameQTE.minWindow,CONFIG.nameQTE.baseWindow-i*CONFIG.nameQTE.decayPerChar);
@@ -843,11 +846,11 @@ function startBreak(boss){
   if(boss) boss._invincible=true;
   $('qteAnswered').textContent='';
   if(boss&&boss.def.type==='tutmob'){       // 教學關小怪：短招式名
-    qteChars=boss.def.move; qteDistract=null;
-    $('qteBark').textContent=boss.def.name+' 使出招式「'+boss.def.move.join('')+'」！　點出招式的字來破招'+(boss.def.move.length>=5?'——字越多，傷害越高！':'');
+    qteChars=chunk2(boss.def.move); qteDistract=null;
+    $('qteBark').textContent=boss.def.name+' 使出招式「'+boss.def.move.join('')+'」！　點出招式來破招'+(boss.def.move.length>=5?'——字越多，傷害越高！':'');
   }else{                                     // 巨龍：全名（三輪逼問）
-    qteChars=NAMES.boss.chars; qteDistract=NAMES.boss.distract;
-    const L=qteChars.length; qteSegStarts=[0,4,8,L]; qteSeg=0;   // 三段
+    qteChars=chunk2(NAMES.boss.chars); qteDistract=null;
+    const L=qteChars.length; qteSegStarts=[0,Math.ceil(L/3),Math.ceil(2*L/3),L]; qteSeg=0;   // 三段（依組數）
     screenShake(.35); sfxBreak(); if(boss)floatText(boss.mesh.position,'吼——！','#ff3300');   // 龍吼震屏
     const mishear=['你：「是不是…昆特牌、提琴、烤蛋塔、蘇打、馬拉松？」','你：「等等…坤達…庫…塔卡…欸我手機拿出來記一下」','你：「昆圖庫塔…卡…後面可以再說一次嗎？」','你：「我聽成『滾啦哭哭卡提考券蘇打西瓜松』了，對嗎？」'];
     $('qteBark').textContent='巨龍：「我乃 昆圖庫塔卡提考特蘇瓦西拉松！」　'+mishear[Math.floor(Math.random()*mishear.length)]+'　'+ROUND_BARKS[0];
@@ -856,7 +859,7 @@ function startBreak(boss){
   showQteCell();
 }
 function startReportName(bark,onDone){     // 報名號 QTE（開場報名、結局報名共用）
-  qteActive=true; qteFinisher=true; qteChars=NAMES.heroTrue; qteIdx=0; qteBoss=null; mode='qte'; qteOnDone=onDone||null;
+  qteActive=true; qteFinisher=true; qteChars=chunk2(NAMES.heroTrue); qteIdx=0; qteBoss=null; mode='qte'; qteOnDone=onDone||null;
   $('qteAnswered').textContent='';
   $('qteBark').textContent=bark;
   $('qteOverlay').style.display='flex';
@@ -864,12 +867,9 @@ function startReportName(bark,onDone){     // 報名號 QTE（開場報名、結
 }
 function showQteCell(){
   const i=qteIdx,correct=qteChars[i];
-  const what=qteFinisher?'名號':(qteDistract?'巨龍的名字':'招式');
-  $('qteHint').textContent='點出'+what+'（第 '+(i+1)+'/'+qteChars.length+' 字）';
-  let pool;
-  if(qteFinisher) pool=_shuf([...NAMES.boss.chars,...NAMES.heroine.split('')].filter(c=>c!==correct)).slice(0,4);
-  else if(qteDistract) pool=_shuf(qteDistract[i]||[]).slice(0,4);
-  else pool=_shuf(TUT_DISTRACT.filter(c=>c!==correct)).slice(0,4);   // 教學小怪用通用干擾
+  const what=qteFinisher?'名號':(qteBoss&&qteBoss.def.type==='cultboss')?'巨龍的名字':'招式';
+  $('qteHint').textContent='點出'+what+'（第 '+(i+1)+'/'+qteChars.length+' 組）';
+  const pool=_shuf(WRONG_WORDS.filter(w=>w!==correct)).slice(0,2);   // 只 2 個干擾，且是差很多的日常詞
   const wrap=$('qteCells'); wrap.innerHTML='';
   _shuf([correct,...pool]).forEach(ch=>{
     const b=document.createElement('button'); b.className='qcand'; b.textContent=ch;
@@ -908,9 +908,10 @@ function onPickChar(ch){
 }
 function breakSuccess(){
   sfxBreak();
-  const dmg=qteChars.length*CONFIG.damage.unitBreakDamage, b=qteBoss;
+  const nch=qteChars.join('').length;   // 實際字數（每組約2字）
+  const dmg=nch*CONFIG.damage.unitBreakDamage, b=qteBoss;
   const isTut=b&&b.def.type==='tutmob';
-  $('qteBark').textContent=isTut?('破招！'+qteChars.length+' 字 × '+CONFIG.damage.unitBreakDamage+' ＝ '+dmg+' 傷害'):'破——！';
+  $('qteBark').textContent=isTut?('破招！'+nch+' 字 × '+CONFIG.damage.unitBreakDamage+' ＝ '+dmg+' 傷害'):'破——！';
   if(b){ b._invincible=false; b.hp-=dmg; drawBar(b.bar,Math.max(0,b.hp/b.maxhp));
     floatText(b.mesh.position,'破！-'+dmg,'#e8b84b'); spawnHitParticles(b.mesh.position,0xffcc00,26); screenShake(.34); freeze=Math.max(freeze,.16); screenFlash();
     if(!isTut) syncBossBar(b); }
@@ -1370,28 +1371,28 @@ function playerSkill(){
 }
 // ══════════ 吟唱換氣終極大招（報自己的名字蓄力）══════════
 const ULT={cooldown:14, segLen:3, base:60};   // 每念 segLen 字換氣一次；傷害=base×字數×換氣倍率
-let ultActive=false,ultIdx=0,ultMult=1,ultPhase='',ultSweep=0,ultSweepDir=1,ultBreathT=0,ultCD=0;
+let ultActive=false,ultIdx=0,ultMult=1,ultPhase='',ultSweep=0,ultSweepDir=1,ultBreathT=0,ultCD=0,ultChunks=null;
 function startUltimate(){
   if(ultActive||qteActive||mode!=='play'||ultCD>0||P._choke>0){ if(ultCD>0)floatText(hero.position,'真氣未復（'+Math.ceil(ultCD)+'s）','#aaa'); return; }
-  ultActive=true; ultIdx=0; ultMult=1; mode='qte';
+  ultActive=true; ultIdx=0; ultMult=1; mode='qte'; ultChunks=chunk2(NAMES.heroTrue);
   $('ultAnswered').textContent=''; $('ultBark').textContent='大俠運起真氣，吟唱絕學——報出你的名號！';
   $('ultOverlay').style.display='flex'; ultPick();
 }
 function ultPick(){ ultPhase='pick'; $('ultBreath').style.display='none'; $('ultCells').style.display='flex'; showUltCell(); }
 function showUltCell(){
-  const correct=NAMES.heroTrue[ultIdx];
-  const pool=_shuf([...NAMES.boss.chars,...NAMES.heroine.split('')].filter(c=>c!==correct)).slice(0,4);
-  $('ultHint').textContent='吟唱（第 '+(ultIdx+1)+'/'+NAMES.heroTrue.length+' 字）　倍率 ×'+ultMult.toFixed(1);
+  const correct=ultChunks[ultIdx];
+  const pool=_shuf(WRONG_WORDS.filter(w=>w!==correct)).slice(0,2);   // 兩個字一組、只 2 個差很多的干擾
+  $('ultHint').textContent='吟唱（第 '+(ultIdx+1)+'/'+ultChunks.length+' 組）　倍率 ×'+ultMult.toFixed(1);
   const wrap=$('ultCells'); wrap.innerHTML='';
   _shuf([correct,...pool]).forEach(ch=>{const b=document.createElement('button');b.className='qcand';b.textContent=ch;b.onclick=()=>onUltPick(ch);wrap.appendChild(b);});
 }
 function onUltPick(ch){
   if(!ultActive||ultPhase!=='pick')return;
-  if(ch!==NAMES.heroTrue[ultIdx]){ ultChoke('字念錯了！'); return; }
+  if(ch!==ultChunks[ultIdx]){ ultChoke('字念錯了！'); return; }
   $('ultAnswered').textContent+=ch; sfxGold(); ultIdx++;
   const o=$('ultOverlay');o.classList.remove('gold');void o.offsetWidth;o.classList.add('gold');
-  if(ultIdx>=NAMES.heroTrue.length){ ultUnleash(); return; }
-  if(ultIdx%ULT.segLen===0) ultBreath(); else showUltCell();
+  if(ultIdx>=ultChunks.length){ ultUnleash(); return; }
+  if(ultIdx%2===0) ultBreath(); else showUltCell();   // 每 2 組換一次氣
 }
 function ultBreath(){
   ultPhase='breath'; $('ultCells').style.display='none'; $('ultBreath').style.display='block';
