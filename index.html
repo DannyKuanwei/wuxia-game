@@ -2352,7 +2352,8 @@ function mpSendOne(to,payload){
 }
 // 統一收訊分流（玩家狀態 / 敵人快照 / 傷害回報 / 受擊）
 function mpOnMessage(d,fromConn){
-  if(!d) return; const ty=d.t||'s';
+  if(!d) return; mp._rxT=t;   // 記下最後收到資料的時間（看門狗/AI回退用）
+  const ty=d.t||'s';
   if(ty==='s'){ onPeerState(d); if(mp.isHost&&fromConn) mpRelay(d,fromConn); }
   else if(ty==='enemies'){ if(mpClientActive()) applyEnemySnapshot(d); }
   else if(ty==='hit'){ if(mpHostActive()){ const e=npcs[d.i]; if(e&&e.alive&&e.def.type!=='cultboss') damageNPC(e,d.dmg); } }
@@ -2440,6 +2441,8 @@ function mpSend(payload){
   else if(mp.mode==='peer'){ for(const c of mp.conns){ if(c&&c.open){ try{c.send(payload);}catch(_){} } } }
 }
 function mpTick(dt){
+  // 連線看門狗：房客若超過6秒收不到房主任何資料 → 視為斷線，退回單機（避免整個畫面凍住）
+  if(mpClientActive() && mp._rxT!=null && (t-mp._rxT)>6){ mpLeave('與房主失去連線，已轉單機'); }
   // 廣播自己（~10Hz）
   mp.sendT-=dt;
   if(mp.sendT<=0 && mp.me && (mp.channel||mp.conns.length)){ mp.sendT=.1; mpSend(mpSelfPayload()); }
@@ -2495,7 +2498,7 @@ function mpHookConn(conn,asHost){
     try{ conn.send(mpSelfPayload()); }catch(_){}
     if(asHost){ mp._fullT=0; }   // 新隊員加入 → 下一拍補一份完整敵人快照
     else{
-      mp.active=true; mpRoomShow(mp.code);
+      mp.active=true; mp._rxT=t; mpRoomShow(mp.code);   // 看門狗從加入起算：6秒沒資料就轉單機
       $('mpStatus').textContent='✓ 已加入隊伍 '+mp.code+'！';
       floatText(hero.position,'已加入隊伍 '+mp.code,'#9ad8b0'); setTimeout(mpClose,900);
     }
@@ -2675,13 +2678,12 @@ function animate(){
         if(e._enrage>0) e._enrage-=dt;
       }
       if(e.def.type==='civilian'&&e.hostile&&e.state!=='flee') e.state='flee';
-      if(mpClientActive() && e.def.type!=='cultboss'){
-        // 房主權威（share 房主的 data）：非 Boss 怪由房主廣播的位置內插，本機不跑 AI
-        if(e._netTX!=null){
-          e.mesh.position.x+=(e._netTX-e.mesh.position.x)*Math.min(1,dt*12);
-          e.mesh.position.z+=(e._netTZ-e.mesh.position.z)*Math.min(1,dt*12);
-          let dr=(e._netTRY||0)-e.mesh.rotation.y; while(dr>Math.PI)dr-=2*Math.PI; while(dr<-Math.PI)dr+=2*Math.PI; e.mesh.rotation.y+=dr*Math.min(1,dt*12);
-        }
+      // 房主權威：非Boss怪用房主位置內插；但若房主資料超過3秒沒來(連線不穩)，就本機自己跑AI，避免怪凍住
+      const netFresh = mp._rxT!=null && (t-mp._rxT)<3;
+      if(mpClientActive() && netFresh && e._netTX!=null && e.def.type!=='cultboss'){
+        e.mesh.position.x+=(e._netTX-e.mesh.position.x)*Math.min(1,dt*12);
+        e.mesh.position.z+=(e._netTZ-e.mesh.position.z)*Math.min(1,dt*12);
+        let dr=(e._netTRY||0)-e.mesh.rotation.y; while(dr>Math.PI)dr-=2*Math.PI; while(dr<-Math.PI)dr+=2*Math.PI; e.mesh.rotation.y+=dr*Math.min(1,dt*12);
       }else{
       if(e.state==='patrol'&&e.def.patrol){
         const wp=e.def.patrol[e.patrolIdx],pdx=wp[0]-e.mesh.position.x,pdz=wp[1]-e.mesh.position.z,pd=Math.hypot(pdx,pdz);
