@@ -233,12 +233,13 @@ body.touch #ultBtn{right:16px;bottom:270px}
 #qteCastFill{height:100%;width:100%;transform-origin:left;background:linear-gradient(90deg,#d8351f,#e8b84b);transition:transform .08s linear}
 #qteHint{color:#ece0c8;opacity:.8;font-size:14px;letter-spacing:2px}
 #qteCells{display:flex;flex-wrap:wrap;gap:12px;justify-content:center;max-width:96vw}
-.qcand{font-family:inherit;font-size:40px;width:84px;height:84px;border-radius:16px;cursor:pointer;
+.qcand{font-family:inherit;font-size:34px;min-width:96px;height:84px;padding:0 16px;border-radius:16px;cursor:pointer;
+  display:inline-flex;align-items:center;justify-content:center;white-space:nowrap;line-height:1;letter-spacing:2px;
   background:rgba(236,224,200,.95);color:#15100d;border:3px solid #6fae8f;box-shadow:0 4px 0 rgba(0,0,0,.3);
   transition:transform .06s,background .1s;user-select:none}
 .qcand:hover{background:#fff}
 .qcand:active{transform:translateY(3px);box-shadow:0 1px 0 rgba(0,0,0,.3);background:#e8b84b}
-@media(max-width:520px){.qcand{font-size:32px;width:68px;height:68px}#qteAnswered{font-size:23px;letter-spacing:2px}}
+@media(max-width:520px){.qcand{font-size:27px;min-width:78px;height:70px;padding:0 12px;letter-spacing:1px}#qteAnswered{font-size:23px;letter-spacing:2px}}
 </style>
 </head>
 <body>
