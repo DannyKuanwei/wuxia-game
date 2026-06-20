@@ -13,6 +13,24 @@ html,body{margin:0;height:100%;overflow:hidden;background:#040d0a;font-family:"M
 #flash{position:fixed;inset:0;background:#ff2d2d;opacity:0;pointer-events:none;z-index:55}
 #scnfade{position:fixed;inset:0;background:#000;opacity:0;pointer-events:none;z-index:120;transition:opacity .5s;display:flex;align-items:center;justify-content:center;color:#e8c87a;font-size:26px;letter-spacing:6px;font-family:"KaiTi","標楷體",serif}
 #mpBtn{position:fixed;top:10px;left:50%;transform:translateX(-50%);z-index:60;background:rgba(43,122,75,.92);color:#fff;border:2px solid #6fae8f;border-radius:10px;padding:7px 14px;font-size:15px;font-family:inherit;cursor:pointer}
+#bagBtn{position:fixed;top:10px;left:calc(50% + 78px);z-index:60;background:rgba(90,74,42,.92);color:#fff;border:2px solid #c8a86a;border-radius:10px;padding:7px 14px;font-size:15px;font-family:inherit;cursor:pointer}
+#saveToast{position:fixed;top:84px;right:14px;z-index:61;background:rgba(43,122,75,.92);color:#fff;border-radius:8px;padding:6px 12px;font-size:13px;opacity:0;transition:opacity .3s;pointer-events:none}
+#saveToast.show{opacity:1}
+#bagModal{position:fixed;inset:0;z-index:130;background:rgba(0,0,0,.65);display:flex;align-items:center;justify-content:center}
+.bgcard{background:#1c2620;border:2px solid #c8a86a;border-radius:16px;padding:20px;width:360px;max-width:94vw;max-height:84vh;overflow-y:auto;color:#e8e0c8}
+.bgcard h2{margin:0 0 12px;font-size:19px;color:#fff;text-align:center}
+.bgslots{display:flex;flex-direction:column;gap:6px;margin-bottom:10px}
+.bgslot{display:flex;align-items:center;gap:8px;background:rgba(0,0,0,.25);border-radius:8px;padding:6px 8px}
+.bgsl{width:38px;font-size:13px;color:#c8a86a;flex-shrink:0}
+.bgit{flex:1;font-size:13px}
+.bgit.empty{opacity:.4}
+.bgslot button{background:#5a3a2a;color:#fff;border:none;border-radius:6px;padding:4px 8px;font-size:12px;font-family:inherit;cursor:pointer}
+.bgttl{font-size:13px;color:#9ad8b0;margin:10px 0 6px;border-top:1px solid #3a4a3a;padding-top:8px}
+.bglist{display:flex;flex-direction:column;gap:5px}
+.bgempty{opacity:.5;font-size:13px;text-align:center;padding:10px}
+.bgrow{display:flex;justify-content:space-between;align-items:center;font-size:13px;background:rgba(0,0,0,.2);border-radius:6px;padding:5px 8px}
+.bgrow button{background:#2b7a4b;color:#fff;border:none;border-radius:6px;padding:4px 9px;font-size:12px;font-family:inherit;cursor:pointer;margin-left:4px}
+.bgrow button.sell{background:#7a5a2a}
 #partyFrames{position:fixed;top:50px;left:10px;z-index:58;display:flex;flex-direction:column;gap:6px;pointer-events:none}
 .pf{background:rgba(20,28,22,.82);border:1px solid #6fae8f;border-radius:8px;padding:5px 8px;width:150px}
 .pf .pfn{font-size:12px;color:#e8e0c8;display:flex;justify-content:space-between}
@@ -356,11 +374,23 @@ body.touch #ultBtn{right:16px;bottom:270px}
   <div class="si"><span>🏹 袖箭（遠距攻擊）</span><button onclick="buyItem('bow')">60 🪙</button></div>
   <button id="shopClose" onclick="closeShop()">✕ 離開</button>
 </div>
-<div id="hint" style="display:none">WASD 移動　Shift 衝刺　J/點擊 攻擊　K 絕招（冷卻8秒）　右鍵 格擋　Ctrl 翻滾　E 互動/寶箱　H 傷藥　G 靈丹　Q 切換武器　C 蹲伏　V 視角</div>
+<div id="hint" style="display:none">WASD 移動　Shift 衝刺　J/點擊 攻擊　K 絕招（冷卻8秒）　Ctrl 翻滾　E 互動/寶箱　H 傷藥　G 靈丹　Q 切換武器　C 蹲伏　V 視角</div>
 <div id="comboDisplay"><div class="cn" id="comboCnt">2</div><div class="ct" id="comboLbl">連擊</div></div>
 <div id="questPanel"><div class="qt">📜 當前任務</div><div class="qi" id="questTxt">—</div><div class="qd" id="questReward"></div></div>
 <div id="bossBar"><div class="bn" id="bossName">賊首</div><div class="bh"><span id="bossFill" style="transform:scaleX(1)"></span></div></div>
 <div id="skillCdRing"><svg viewBox="0 0 42 42"><circle cx="21" cy="21" r="19" id="cdCircle"/></svg></div>
+
+<div id="saveToast">💾 已存檔</div>
+
+<!-- 背包/裝備 -->
+<button id="bagBtn" style="display:none" onclick="window.bagOpen&&bagOpen()">🎒 裝備</button>
+<div id="bagModal" style="display:none">
+  <div class="bgcard">
+    <h2>🎒 裝備 / 背包</h2>
+    <div id="bagBody"></div>
+    <button class="mpx" onclick="window.bagClose&&bagClose()">✕ 關閉</button>
+  </div>
+</div>
 
 <!-- 多人組隊 -->
 <button id="mpBtn" style="display:none" onclick="window.mpOpen&&mpOpen()">🤝 組隊</button>
@@ -444,7 +474,6 @@ body.touch #ultBtn{right:16px;bottom:270px}
   <div class="tbtn" id="btnPot">🧪</div>
   <div class="tbtn" id="btnInteract">💬</div>
   <div class="tbtn sm" id="btnDodge">翻滾</div>
-  <div class="tbtn sm" id="btnBlock">格擋</div>
   <div class="tbtn sm" id="btnWeapon">切武</div>
   <div class="tbtn sm" id="btnCam">視角</div>
 </div>
@@ -462,7 +491,7 @@ const $    = id => document.getElementById(id);
 const rand = (a,b) => Math.floor(a+Math.random()*(b-a+1));
 const dist2= (a,b) => Math.hypot(a.position.x-b.position.x,a.position.z-b.position.z);
 const clamp= (v,a,b) => Math.max(a,Math.min(b,v));
-function showHUD(){['minimap','wanted','topright','playerHud','hotbar','bottomleft','hint','xhair','questPanel','skillCdRing','ultBtn'].forEach(id=>$(id).style.display='');$('mpBtn').style.display='block';}
+function showHUD(){['minimap','wanted','topright','playerHud','hotbar','bottomleft','hint','xhair','questPanel','skillCdRing','ultBtn'].forEach(id=>$(id).style.display='');$('mpBtn').style.display='block';$('bagBtn').style.display='block';if(typeof refreshBagBtn==='function')refreshBagBtn();}
 // ── 觸控裝置偵測 ──
 // 有滑鼠/觸控筆(fine pointer)就走電腦模式；純觸控(只有 coarse)才開手機 UI
 const IS_TOUCH = matchMedia('(pointer:coarse)').matches && !matchMedia('(pointer:fine)').matches;
@@ -605,10 +634,8 @@ const SLP={x:150,z:-20};   // 十里坡中心
   // 草坡地面
   const grass=new THREE.Mesh(new THREE.CircleGeometry(46,40),new THREE.MeshStandardMaterial({color:0x6fae55,roughness:1}));
   grass.rotation.x=-Math.PI/2; grass.position.set(SLP.x,.02,SLP.z); grass.receiveShadow=true; scene.add(grass);
-  // 緩坡（幾個矮丘）
-  for(let i=0;i<7;i++){ const a=Math.random()*6.28,r=10+Math.random()*30; mtn(SLP.x+Math.cos(a)*r,SLP.z+Math.sin(a)*r,6+Math.random()*10,5+Math.random()*7); }
-  for(let i=0;i<14;i++){ const a=Math.random()*6.28,r=6+Math.random()*38; bamboo(SLP.x+Math.cos(a)*r,SLP.z+Math.sin(a)*r); }
-  for(let i=0;i<10;i++){ const a=Math.random()*6.28,r=8+Math.random()*34; rock(SLP.x+Math.cos(a)*r,SLP.z+Math.sin(a)*r,.6+Math.random()*.8); }
+  // 不要山，平坦練功場——只點綴少許石頭，靠路標辨識
+  for(let i=0;i<8;i++){ const a=Math.random()*6.28,r=10+Math.random()*32; rock(SLP.x+Math.cos(a)*r,SLP.z+Math.sin(a)*r,.5+Math.random()*.6); }
   road(SLP.x,SLP.z+44,SLP.x,SLP.z-44,4);
   // 大路標
   const sign=new THREE.Group(); sign.position.set(SLP.x-2,0,SLP.z+34);
@@ -846,8 +873,8 @@ const P={
   weapon:'sword',hasBow:false,
   healBonus:1.0,
   dodgeTimer:0,dodgeCd:0,
-  blocking:false,parryWin:0,
-  comboMult:2.1,blockMult:.28,
+  comboMult:2.1,
+  inv:[], equipped:{weapon:null,armor:null,trinket:null},
 };
 const WANTED_TXT=['☆☆☆☆☆','★☆☆☆☆','★★☆☆☆','★★★☆☆','★★★★☆','★★★★★'];
 function setWanted(n){P.wanted=clamp(n,0,5);P.wantedCd=35;$('wanted').textContent=WANTED_TXT[P.wanted];$('wanted').style.color=P.wanted>=4?'#ff4422':P.wanted>=2?'#ff9900':P.wanted>=1?'#ffd700':'rgba(255,215,0,.25)';if(P.wanted>=1)showWantedPoster();}
@@ -901,11 +928,12 @@ window._doStart=()=>{
 
 // ── 輕量存檔（localStorage，任務檢查點自動存）──
 const SAVE_KEY='daxia_save_v1';
-function saveGame(){
+let _saveToastT=0,_autoSaveT=30;
+function saveGame(toast){
   try{
     if(!chosenClass) return;
     const data={
-      v:1, cls:chosenClass, P:{...P},
+      v:2, cls:chosenClass, P:{...P},
       quests:QUESTS.map(q=>({done:q.done,claimed:q.claimed})),
       talked:[...talkedNpcs],
       pos:hero?{x:hero.position.x,z:hero.position.z}:null,
@@ -913,6 +941,7 @@ function saveGame(){
       t:Date.now(),
     };
     localStorage.setItem(SAVE_KEY,JSON.stringify(data));
+    if(toast!==false){ const el=$('saveToast'); if(el){el.classList.add('show'); _saveToastT=1.4;} }
   }catch(e){}
 }
 function hasSave(){ try{return !!localStorage.getItem(SAVE_KEY);}catch(e){return false;} }
@@ -1286,8 +1315,9 @@ NPC_DEFS.forEach(def=>{
   scene.add(mesh);
   const hostileType=def.type==='bandit'||def.type==='hermit'||def.type==='cultboss';
   const isCombat=def.type==='bandit'||def.type==='hermit'||def.type==='guard';   // 戰鬥型加難度（魔王另外調）
-  const mhp=isCombat?Math.round(def.hp*MOB_DIFF.hp):def.hp;
-  const matk=isCombat?Math.round((def.atk||0)*MOB_DIFF.atk):(def.atk||0);
+  const sizeF=def.mh||1;   // 體型決定難度：越大越硬、打越痛、掉寶越好
+  const mhp=isCombat?Math.round(def.hp*MOB_DIFF.hp*Math.pow(sizeF,1.7)):def.hp;
+  const matk=isCombat?Math.round((def.atk||0)*MOB_DIFF.atk*sizeF):(def.atk||0);
   npcs.push({def,mesh,bar,hp:mhp,maxhp:mhp,atk:matk,alive:true,state:hostileType?'patrol':(def.patrol?'patrol':def.spd===0?'idle':'wander'),patrolIdx:0,wanderTarget:null,wanderTimer:0,atkTimer:def.cd||1.4,flash:0,hostile:hostileType,loot:Math.max(3,Math.floor(mhp/7))});
 });
 let kills=0;
@@ -1437,8 +1467,7 @@ function playerAttack(){
   if(IS_TOUCH) faceNearestEnemy(P.weapon==='bow'?18:3.8);
   if(P.weapon==='bow'){shootArrow();attackCD=.55;spawnSlash(1);heroLunge=.1;return;}
   comboN=comboT>0&&comboN<4?comboN+1:1;comboT=1.3;
-  let mult=comboN>=4?P.comboMult*1.5:comboN>=3?P.comboMult:comboN>=2?1.45:1.0;
-  if(P._counter>0){mult*=2.2;P._counter=0;floatText(hero.position,'⚡ 彈反反擊！','#ffe14d');freeze=Math.max(freeze,.09);}   // 彈反後下一擊必爆
+  const mult=comboN>=4?P.comboMult*1.5:comboN>=3?P.comboMult:comboN>=2?1.45:1.0;
   attackCD=1.0;heroLunge=.18;spawnSlash(comboN);showCombo(comboN);   // 最快 1 秒一下
   heroPlayOnce('attack',0.9);
   const ry=hero.rotation.y,fx=Math.sin(ry),fz=Math.cos(ry),range=(P.weapon==='sword2')?3.4:(P.weapon==='bigsword')?3.8:2.8;
@@ -1598,6 +1627,7 @@ function damageNPC(e,dmg){
 const BANDIT_DYING=['我…我還沒報名號…','大哥…我上有老下有小…','早知道就去種田了…','下輩子…不當山賊了…','你贏了…但我不知道你叫啥…'];
 function killNPC(e){
   if((e.def.type==='bandit'||e.def.type==='hermit')&&Math.random()<.6) floatText(e.mesh.position,BANDIT_DYING[Math.floor(Math.random()*BANDIT_DYING.length)],'#ffd0a0');
+  rollDrop(e);   // 掉裝備（由體型決定機率/品質）
   e.alive=false;deathBurst(e.mesh.position);scene.remove(e.mesh);kills++;
   const xpGain=Math.floor(e.maxhp/2.5*(1+P.level*.08));
   gainXP(xpGain);addCoins(e.loot+rand(0,e.loot));
@@ -1619,19 +1649,7 @@ function respawnNPC(e){
 }
 function damagePlayer(e){
   const raw=Math.floor((e.atk||e.def.atk)*(1+P.level*.05));
-  let dmg;
-  if(P.blocking&&P.parryWin>0){          // 完美彈反！
-    floatText(hero.position,'⚔ 完美彈反！','#ffe14d');
-    spawnHitParticles(hero.position,0xffff66,12);screenFlash();screenShake(.13);freeze=Math.max(freeze,.18);sfxBreak();
-    if(e){ e._stun=1.6; e._winding=false; e.flash=.22;
-      const bx=e.mesh.position.x-hero.position.x,bz=e.mesh.position.z-hero.position.z,bl=Math.hypot(bx,bz)||1;
-      e.mesh.position.x+=bx/bl*1.7; e.mesh.position.z+=bz/bl*1.7;
-      if(e.def.type!=='cultboss') damageNPC(e,Math.floor(P.atk*0.6)); }   // 反傷
-    P._counter=2.2;   // 2.2 秒內下一擊必爆
-    return;
-  }
-  if(P.blocking){dmg=Math.max(1,Math.floor(rand(raw-2,raw+2)*P.blockMult));floatText(hero.position,'-'+dmg+' 格','#88aaff');screenShake(.06);}
-  else{dmg=rand(raw-2,raw+3);screenFlash();screenShake(.18);floatText(hero.position,'-'+dmg,'#ff6a6a');spawnHitParticles(hero.position,0xff2200,5);}
+  const dmg=rand(raw-2,raw+3);screenFlash();screenShake(.18);floatText(hero.position,'-'+dmg,'#ff6a6a');spawnHitParticles(hero.position,0xff2200,5);
   P.hp-=dmg;lastCombatTime=0;refreshHud();if(P.hp<=0)gameOver();
 }
 
@@ -1731,6 +1749,7 @@ function claimQuest(){
 function grabPickup(pk){
   if(pk.taken) return; pk.taken=true; scene.remove(pk.group);
   const d=pk.def;
+  if(d.equip){ P.inv.push(d.equip); sfxGold(); floatText(pk.group.position,'撿到裝備：'+itemLabel(d.equip),RARITY[d.equip.rarity].c); refreshBagBtn(); return; }
   if(d.coins) addCoins(d.coins);
   if(d.heal)  P.potions+=d.heal;
   if(d.mp)    P.mmpotions+=d.mp;
@@ -1738,6 +1757,79 @@ function grabPickup(pk){
   if(d.xp)    gainXP(d.xp);
   sfxGold(); refreshHud();
   floatText(pk.group.position,'拿到「'+d.name+'」'+(d.coins?' +'+d.coins+'🪙':'')+(d.xp?' +'+d.xp+'XP':''),'#ffe14d');
+}
+// ══════════ 裝備系統（打怪掉裝備）══════════
+const RARITY=[{n:'普通',c:'#cfd0c8'},{n:'精良',c:'#5ee06a'},{n:'稀有',c:'#5aa6ff'},{n:'傳說',c:'#ffb43a'}];
+const SLOT_NAME={weapon:'武器',armor:'護甲',trinket:'飾品'};
+const EQUIP_POOL=[
+  {slot:'weapon',name:'鐵劍',  emoji:'🗡️',atk:[3,6]},
+  {slot:'weapon',name:'精鋼刀',emoji:'⚔️',atk:[6,12]},
+  {slot:'weapon',name:'青鋒寶劍',emoji:'🗡️',atk:[11,18]},
+  {slot:'armor', name:'粗布衣',emoji:'🥋',hp:[15,30]},
+  {slot:'armor', name:'皮甲',  emoji:'🧥',hp:[30,55]},
+  {slot:'armor', name:'玄鐵甲',emoji:'🛡️',hp:[55,100]},
+  {slot:'trinket',name:'玉珮',emoji:'📿',atk:[2,4],hp:[8,18]},
+  {slot:'trinket',name:'護身符',emoji:'🧿',hp:[18,38]},
+];
+let _itemId=0;
+function makeItem(base,r){
+  const m=1+r*0.55, it={id:'it'+(_itemId++),slot:base.slot,name:base.name,emoji:base.emoji,rarity:r};
+  if(base.atk)it.atk=Math.max(1,Math.round(rand(base.atk[0],base.atk[1])*m));
+  if(base.hp) it.hp =Math.max(1,Math.round(rand(base.hp[0], base.hp[1]) *m));
+  return it;
+}
+function itemLabel(it){ return RARITY[it.rarity].n+' '+(it.emoji||'')+it.name+(it.atk?' ⚔+'+it.atk:'')+(it.hp?' ❤+'+it.hp:''); }
+function rollDrop(e){   // 由怪物體型決定掉率與品質
+  const t=e.def.type; if(t!=='bandit'&&t!=='hermit'&&t!=='guard')return;
+  const sizeF=e.def.mh||1;
+  if(Math.random()>0.18*Math.pow(sizeF,1.5)) return;   // 越大隻越會掉
+  const base=EQUIP_POOL[Math.floor(Math.random()*EQUIP_POOL.length)];
+  const roll=Math.random()*Math.pow(sizeF,1.3);
+  const r = roll>1.25?3 : roll>0.95?2 : roll>0.55?1 : 0;   // 大怪→高品質
+  spawnEquipDrop(e.mesh.position.x,e.mesh.position.z,makeItem(base,r));
+}
+function spawnEquipDrop(x,z,item){
+  const col=parseInt(RARITY[item.rarity].c.slice(1),16);
+  spawnPickup(x,z,{name:itemLabel(item),color:col,equip:item});
+}
+// ── 背包 / 裝備面板 ──
+window.bagOpen=()=>{ if(mode!=='play')return; $('bagModal').style.display='flex'; renderBag(); };
+window.bagClose=()=>{ $('bagModal').style.display='none'; };
+function refreshBagBtn(){ const n=P.inv.length; const b=$('bagBtn'); if(b)b.textContent='🎒 裝備'+(n?'('+n+')':''); }
+window.equipItem=function(id){
+  const idx=P.inv.findIndex(i=>i.id===id); if(idx<0)return;
+  const it=P.inv[idx], slot=it.slot, old=P.equipped[slot];
+  if(old){ if(old.atk)P.atk-=old.atk; if(old.hp)P.maxhp-=old.hp; P.inv.push(old); }
+  P.inv.splice(P.inv.findIndex(i=>i.id===id),1);
+  P.equipped[slot]=it;
+  if(it.atk)P.atk+=it.atk; if(it.hp){P.maxhp+=it.hp; P.hp=Math.min(P.hp+it.hp,P.maxhp);}
+  P.hp=Math.min(P.hp,P.maxhp); refreshHud(); renderBag(); refreshBagBtn(); saveGame();
+  floatText(hero.position,'裝備：'+itemLabel(it),RARITY[it.rarity].c);
+};
+window.unequip=function(slot){
+  const old=P.equipped[slot]; if(!old)return;
+  if(old.atk)P.atk-=old.atk; if(old.hp)P.maxhp-=old.hp;
+  P.hp=Math.min(P.hp,P.maxhp); P.equipped[slot]=null; P.inv.push(old);
+  refreshHud(); renderBag(); refreshBagBtn(); saveGame();
+};
+window.sellItem=function(id){
+  const idx=P.inv.findIndex(i=>i.id===id); if(idx<0)return;
+  const it=P.inv[idx], price=8+it.rarity*14+(it.atk||0)+Math.floor((it.hp||0)/4);
+  P.inv.splice(idx,1); addCoins(price); floatText(hero.position,'賣出 +'+price+'🪙','#ffd700'); renderBag(); refreshBagBtn(); saveGame();
+};
+function renderBag(){
+  let h='<div class="bgslots">';
+  for(const s of ['weapon','armor','trinket']){
+    const it=P.equipped[s];
+    h+='<div class="bgslot"><div class="bgsl">'+SLOT_NAME[s]+'</div>'+(it?('<div class="bgit" style="color:'+RARITY[it.rarity].c+'">'+itemLabel(it)+'</div><button onclick="unequip(\''+s+'\')">卸下</button>'):'<div class="bgit empty">（空）</div>')+'</div>';
+  }
+  h+='</div><div class="bgttl">背包（'+P.inv.length+'）</div><div class="bglist">';
+  if(!P.inv.length) h+='<div class="bgempty">打怪掉裝備就會出現在這裡～</div>';
+  for(const it of P.inv){
+    h+='<div class="bgrow"><span style="color:'+RARITY[it.rarity].c+'">'+itemLabel(it)+'</span><span><button onclick="equipItem(\''+it.id+'\')">裝備</button><button class="sell" onclick="sellItem(\''+it.id+'\')">賣</button></span></div>';
+  }
+  h+='</div>';
+  $('bagBody').innerHTML=h;
 }
 // ── 寶箱互動 ──
 function openChest(chest){
@@ -1956,8 +2048,7 @@ addEventListener('keydown',e=>{
   }
 });
 addEventListener('keyup',e=>{keys[e.key.toLowerCase()]=false;if(e.key==='Shift')P.sprinting=false;});
-addEventListener('mousedown',e=>{if(IS_TOUCH)return;if(e.button===0)playerAttack();if(e.button===2){P.blocking=true;P.parryWin=.34;}});
-addEventListener('mouseup',e=>{if(IS_TOUCH)return;if(e.button===2)P.blocking=false;});
+addEventListener('mousedown',e=>{if(IS_TOUCH)return;if(e.button===0)playerAttack();});
 addEventListener('contextmenu',e=>e.preventDefault());
 const mouseNDC=new THREE.Vector2(0,0);
 const aimRay=new THREE.Raycaster(),aimPlane=new THREE.Plane(new THREE.Vector3(0,1,0),0),aimPoint=new THREE.Vector3();
@@ -1994,10 +2085,8 @@ if(IS_TOUCH){
   tap('btnDodge',()=>doDodge(touchMove.x,touchMove.z));
   tap('btnCam',()=>switchCam());
   tap('btnWeapon',()=>{if(P.hasBow){P.weapon=P.weapon==='bow'?'sword':'bow';floatText(hero.position,P.weapon==='bow'?'切換：袖箭':'切換：劍','#ffd');refreshHud();}else{floatText(hero.position,'尚無弓箭','#aaa');}});
-  const blk=$('btnBlock');
-  if(blk){blk.addEventListener('touchstart',e=>{e.preventDefault();e.stopPropagation();blk.classList.add('act');P.blocking=true;P.parryWin=.34;},{passive:false});blk.addEventListener('touchend',e=>{e.preventDefault();blk.classList.remove('act');P.blocking=false;},{passive:false});}
   renderer.domElement.addEventListener('touchstart',e=>e.preventDefault(),{passive:false});
-  $('hint').textContent='左搖桿移動（推到底衝刺）　右側：攻擊・絕招・翻滾・格擋・傷藥・互動';
+  $('hint').textContent='左搖桿移動（推到底衝刺）　右側：攻擊・絕招・翻滾・傷藥・互動';
 }
 
 // ── camera modes ──
@@ -2138,6 +2227,8 @@ function animate(){
   for(const lf of leaves){ lf.m.position.y-=lf.vy*dt; lf.m.position.x+=lf.sx*dt; lf.m.rotation.z+=lf.rot*dt; lf.m.rotation.x+=lf.rot*dt*.5; if(lf.m.position.y<0){lf.m.position.y=16;lf.m.position.x=(Math.random()-.5)*120;lf.m.position.z=(Math.random()-.5)*120;} }
   if(freeze>0){freeze-=dt;renderer.render(scene,camera);return;}
   t+=dt;
+  if(_saveToastT>0){_saveToastT-=dt;if(_saveToastT<=0)$('saveToast').classList.remove('show');}
+  if(mode==='play'){_autoSaveT-=dt;if(_autoSaveT<=0){_autoSaveT=30;saveGame();}}   // 每30秒自動存檔
   // 念名字 QTE 計時（每格越逼越快，超時=破防失敗）
   if(qteActive){
     qteCellTimer-=dt;
@@ -2163,8 +2254,6 @@ function animate(){
   else $('cdCircle').style.strokeDashoffset=0;
   if(comboT>0){comboT-=dt;if(comboT<=0){comboN=0;}}
   if(comboDTimer>0){comboDTimer-=dt;if(comboDTimer<=0)$('comboDisplay').style.opacity=0;}
-  if(P.parryWin>0) P.parryWin-=dt;
-  if(P._counter>0) P._counter-=dt;
   if(P.dodgeTimer>0) P.dodgeTimer-=dt;
   if(P.dodgeCd>0) P.dodgeCd-=dt;
   if(!P.sprinting&&P.sta<P.maxsta) P.sta=Math.min(P.maxsta,P.sta+dt*18);
