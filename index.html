@@ -910,7 +910,7 @@ function breakSuccess(){
   const isTut=b&&b.def.type==='tutmob';
   $('qteBark').textContent=isTut?('破招！'+qteChars.length+' 字 × '+CONFIG.damage.unitBreakDamage+' ＝ '+dmg+' 傷害'):'破——！';
   if(b){ b._invincible=false; b.hp-=dmg; drawBar(b.bar,Math.max(0,b.hp/b.maxhp));
-    floatText(b.mesh.position,'破！-'+dmg,'#e8b84b'); spawnHitParticles(b.mesh.position,0xffcc00,18); screenShake(.2);
+    floatText(b.mesh.position,'破！-'+dmg,'#e8b84b'); spawnHitParticles(b.mesh.position,0xffcc00,26); screenShake(.34); freeze=Math.max(freeze,.16); screenFlash();
     if(!isTut) syncBossBar(b); }
   bossFailCount=0;
   endQte();
@@ -1276,7 +1276,8 @@ function playerAttack(){
   if(IS_TOUCH) faceNearestEnemy(P.weapon==='bow'?18:3.8);
   if(P.weapon==='bow'){shootArrow();attackCD=.55;spawnSlash(1);heroLunge=.1;return;}
   comboN=comboT>0&&comboN<4?comboN+1:1;comboT=1.3;
-  const mult=comboN>=4?P.comboMult*1.5:comboN>=3?P.comboMult:comboN>=2?1.45:1.0;
+  let mult=comboN>=4?P.comboMult*1.5:comboN>=3?P.comboMult:comboN>=2?1.45:1.0;
+  if(P._counter>0){mult*=2.2;P._counter=0;floatText(hero.position,'⚡ 彈反反擊！','#ffe14d');freeze=Math.max(freeze,.09);}   // 彈反後下一擊必爆
   attackCD=1.0;heroLunge=.18;spawnSlash(comboN);showCombo(comboN);   // 最快 1 秒一下
   heroPlayOnce('attack',0.9);
   const ry=hero.rotation.y,fx=Math.sin(ry),fz=Math.cos(ry),range=(P.weapon==='sword2')?3.4:(P.weapon==='bigsword')?3.8:2.8;
@@ -1291,7 +1292,10 @@ function playerAttack(){
     if(e.def.type==='civilian') setWanted(P.wanted+1);
     if(e.def.type==='guard')    setWanted(P.wanted+2);
   }
-  if(hit&&comboN>=3){screenShake(.05);}
+  if(hit){
+    if(comboN>=4){freeze=Math.max(freeze,.11);screenShake(.2);spawnHitParticles(hero.position,0xfff0a0,8);}   // 連段收尾加重頓幀
+    else if(comboN>=3){screenShake(.08);}
+  }
 }
 function playerSkill(){
   if(mode!=='play'||P.mp<P.skillCost||skillCD>0||P._choke>0) return;
@@ -1418,6 +1422,7 @@ function damageNPC(e,dmg){
   e.bar.visible=true;e.hp-=dmg;e.flash=.16;freeze=Math.max(freeze,.06);
   drawBar(e.bar,e.hp/e.maxhp);
   const isCrit=dmg>P.atk*1.8;
+  if(isCrit)freeze=Math.max(freeze,.11);   // 爆擊加重頓幀
   floatText(e.mesh.position,(isCrit?'💥':'')+'-'+dmg,isCrit?'#ff4400':'#ffe14d');
   spawnHitParticles(e.mesh.position,isCrit?0xff3300:0xffcc44,isCrit?10:5);
   // knockback
@@ -1454,7 +1459,16 @@ function respawnNPC(e){
 function damagePlayer(e){
   const raw=Math.floor(e.def.atk*(1+P.level*.05));
   let dmg;
-  if(P.blocking&&P.parryWin>0){floatText(hero.position,'絕招架！','#ffff44');spawnHitParticles(hero.position,0xffff00,6);freeze=Math.max(freeze,.22);return;}
+  if(P.blocking&&P.parryWin>0){          // 完美彈反！
+    floatText(hero.position,'⚔ 完美彈反！','#ffe14d');
+    spawnHitParticles(hero.position,0xffff66,12);screenFlash();screenShake(.13);freeze=Math.max(freeze,.18);sfxBreak();
+    if(e){ e._stun=1.6; e._winding=false; e.flash=.22;
+      const bx=e.mesh.position.x-hero.position.x,bz=e.mesh.position.z-hero.position.z,bl=Math.hypot(bx,bz)||1;
+      e.mesh.position.x+=bx/bl*1.7; e.mesh.position.z+=bz/bl*1.7;
+      if(e.def.type!=='cultboss') damageNPC(e,Math.floor(P.atk*0.6)); }   // 反傷
+    P._counter=2.2;   // 2.2 秒內下一擊必爆
+    return;
+  }
   if(P.blocking){dmg=Math.max(1,Math.floor(rand(raw-2,raw+2)*P.blockMult));floatText(hero.position,'-'+dmg+' 格','#88aaff');screenShake(.06);}
   else{dmg=rand(raw-2,raw+3);screenFlash();screenShake(.18);floatText(hero.position,'-'+dmg,'#ff6a6a');spawnHitParticles(hero.position,0xff2200,5);}
   P.hp-=dmg;lastCombatTime=0;refreshHud();if(P.hp<=0)gameOver();
@@ -1734,7 +1748,7 @@ addEventListener('keydown',e=>{
   }
 });
 addEventListener('keyup',e=>{keys[e.key.toLowerCase()]=false;if(e.key==='Shift')P.sprinting=false;});
-addEventListener('mousedown',e=>{if(IS_TOUCH)return;if(e.button===0)playerAttack();if(e.button===2){P.blocking=true;P.parryWin=.28;}});
+addEventListener('mousedown',e=>{if(IS_TOUCH)return;if(e.button===0)playerAttack();if(e.button===2){P.blocking=true;P.parryWin=.34;}});
 addEventListener('mouseup',e=>{if(IS_TOUCH)return;if(e.button===2)P.blocking=false;});
 addEventListener('contextmenu',e=>e.preventDefault());
 const mouseNDC=new THREE.Vector2(0,0);
@@ -1773,7 +1787,7 @@ if(IS_TOUCH){
   tap('btnCam',()=>switchCam());
   tap('btnWeapon',()=>{if(P.hasBow){P.weapon=P.weapon==='bow'?'sword':'bow';floatText(hero.position,P.weapon==='bow'?'切換：袖箭':'切換：劍','#ffd');refreshHud();}else{floatText(hero.position,'尚無弓箭','#aaa');}});
   const blk=$('btnBlock');
-  if(blk){blk.addEventListener('touchstart',e=>{e.preventDefault();e.stopPropagation();blk.classList.add('act');P.blocking=true;P.parryWin=.28;},{passive:false});blk.addEventListener('touchend',e=>{e.preventDefault();blk.classList.remove('act');P.blocking=false;},{passive:false});}
+  if(blk){blk.addEventListener('touchstart',e=>{e.preventDefault();e.stopPropagation();blk.classList.add('act');P.blocking=true;P.parryWin=.34;},{passive:false});blk.addEventListener('touchend',e=>{e.preventDefault();blk.classList.remove('act');P.blocking=false;},{passive:false});}
   renderer.domElement.addEventListener('touchstart',e=>e.preventDefault(),{passive:false});
   $('hint').textContent='左搖桿移動（推到底衝刺）　右側：攻擊・絕招・翻滾・格擋・傷藥・互動';
 }
@@ -1861,6 +1875,7 @@ function animate(){
   if(comboT>0){comboT-=dt;if(comboT<=0){comboN=0;}}
   if(comboDTimer>0){comboDTimer-=dt;if(comboDTimer<=0)$('comboDisplay').style.opacity=0;}
   if(P.parryWin>0) P.parryWin-=dt;
+  if(P._counter>0) P._counter-=dt;
   if(P.dodgeTimer>0) P.dodgeTimer-=dt;
   if(P.dodgeCd>0) P.dodgeCd-=dt;
   if(!P.sprinting&&P.sta<P.maxsta) P.sta=Math.min(P.maxsta,P.sta+dt*18);
@@ -1953,8 +1968,18 @@ function animate(){
         const[wx,wz]=e.wanderTarget,wdx=wx-e.mesh.position.x,wdz=wz-e.mesh.position.z,wd=Math.hypot(wdx,wdz);
         if(wd>1.0){e.mesh.position.x+=wdx/wd*e.def.spd*.65*dt;e.mesh.position.z+=wdz/wd*e.def.spd*.65*dt;e.mesh.rotation.y=Math.atan2(wdx,wdz);}
       }else if(e.state==='chase'){
-        if(d>e.def.range){const cx=(hero.position.x-e.mesh.position.x)/d,cz=(hero.position.z-e.mesh.position.z)/d;e.mesh.position.x+=cx*e.def.spd*dt;e.mesh.position.z+=cz*e.def.spd*dt;e.mesh.rotation.y=Math.atan2(cx,cz);e.atkTimer=e.def.cd;}
-        else{e.atkTimer-=dt;if(e.atkTimer<=0){e.atkTimer=e.def.cd;if(P.dodgeTimer<=0)damagePlayer(e);e.mesh.position.y=.28;}}
+        if(e._stun>0){                         // 被完美彈反→暈眩，站著轉圈冒星星
+          e._stun-=dt; e._winding=false; e._stunZ=(e._stunZ||0)-dt;
+          if(e._stunZ<=0){e._stunZ=.45;floatText(e.mesh.position,'★ 暈！','#ffe14d');}
+          e.mesh.rotation.y+=dt*7;
+        }else if(d>e.def.range){const cx=(hero.position.x-e.mesh.position.x)/d,cz=(hero.position.z-e.mesh.position.z)/d;e.mesh.position.x+=cx*e.def.spd*dt;e.mesh.position.z+=cz*e.def.spd*dt;e.mesh.rotation.y=Math.atan2(cx,cz);e.atkTimer=e.def.cd;e._winding=false;}
+        else{
+          e.atkTimer-=dt;
+          if(!e._winding && e.atkTimer<=0.42 && e.atkTimer>0){   // 出手預警：看到⚡就格擋/翻滾
+            e._winding=true; floatText(e.mesh.position,'⚡','#ff5555'); spawnHitParticles(e.mesh.position,0xff3322,4);
+          }
+          if(e.atkTimer<=0){e.atkTimer=e.def.cd;e._winding=false;if(P.dodgeTimer<=0)damagePlayer(e);e.mesh.position.y=.28;}
+        }
         if(d>35)e.state=e.def.patrol?'patrol':'wander';
       }else if(e.state==='flee'){
         if(d<22){const fx=(e.mesh.position.x-hero.position.x)/d,fz=(e.mesh.position.z-hero.position.z)/d;e.mesh.position.x+=fx*e.def.spd*1.4*dt;e.mesh.position.z+=fz*e.def.spd*1.4*dt;}else e.state='wander';
