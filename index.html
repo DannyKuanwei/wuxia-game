@@ -887,7 +887,16 @@ function onPickChar(ch){
   }else{
     if(qteFinisher){ finisherFail(); }
     else if(isBossBreak){            // 念錯：只退回本輪開頭，不變肉（變肉留給超時）
-      sfxFail(); qteIdx=qteSegStarts[qteSeg]; $('qteAnswered').textContent=qteChars.slice(0,qteIdx).join('');
+      sfxFail(); bossFailCount++;
+      qteIdx=qteSegStarts[qteSeg]; $('qteAnswered').textContent=qteChars.slice(0,qteIdx).join('');
+      if(bossFailCount>=3){          // 念錯三次 → 給「回家關開水」台階
+        qteActive=false; $('qteOverlay').style.display='none';
+        showChoice('少年','（被巨龍的名字繞到頭暈）這⋯這誰記得住啊！！',[
+          {label:'再戰巨龍！（繼續念）',fn:()=>{bossFailCount=0;qteActive=true;mode='qte';$('qteOverlay').style.display='flex';$('qteBark').textContent='深呼吸⋯這一輪再來！';showQteCell();}},
+          {label:'⋯我要回家關開水！（撤退）',fn:()=>bossRetreat(qteBoss)},
+        ]);
+        return;
+      }
       $('qteBark').textContent='念錯了！這一輪重來——'; showQteCell();
     }
     else breakFail();
@@ -927,9 +936,10 @@ function breakFail(){
   }
 }
 function bossRetreat(b){
-  if(b){ b.state='patrol'; b._engageTimer=null; }
+  if(b){ b.state='patrol'; b._engageTimer=CONFIG.boss.safetyCastInterval; b._invincible=false; }
+  qteActive=false; qteBoss=null; mode='play';
   hero.position.set(0,0,0); hero.rotation.y=Math.PI;
-  $('bossBar').style.display='none'; bossFailCount=0;
+  $('bossBar').style.display='none'; $('qteOverlay').style.display='none'; bossFailCount=0;
   floatText(hero.position,'（腳底抹油～先回家關開水！）','#8fe6b0');
 }
 function finisherFail(){
