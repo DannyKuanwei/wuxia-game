@@ -869,7 +869,7 @@ function showQteCell(){
   const i=qteIdx,correct=qteChars[i];
   const what=qteFinisher?'名號':(qteBoss&&qteBoss.def.type==='cultboss')?'巨龍的名字':'招式';
   $('qteHint').textContent='點出'+what+'（第 '+(i+1)+'/'+qteChars.length+' 組）';
-  const pool=_shuf(WRONG_WORDS.filter(w=>w!==correct)).slice(0,2);   // 只 2 個干擾，且是差很多的日常詞
+  const pool=_shuf(WRONG_WORDS.filter(w=>w!==correct)).slice(0,1);   // 只 1 個干擾，二選一，差很多的日常詞
   const wrap=$('qteCells'); wrap.innerHTML='';
   _shuf([correct,...pool]).forEach(ch=>{
     const b=document.createElement('button'); b.className='qcand'; b.textContent=ch;
@@ -1381,7 +1381,7 @@ function startUltimate(){
 function ultPick(){ ultPhase='pick'; $('ultBreath').style.display='none'; $('ultCells').style.display='flex'; showUltCell(); }
 function showUltCell(){
   const correct=ultChunks[ultIdx];
-  const pool=_shuf(WRONG_WORDS.filter(w=>w!==correct)).slice(0,2);   // 兩個字一組、只 2 個差很多的干擾
+  const pool=_shuf(WRONG_WORDS.filter(w=>w!==correct)).slice(0,1);   // 兩個字一組、二選一
   $('ultHint').textContent='吟唱（第 '+(ultIdx+1)+'/'+ultChunks.length+' 組）　倍率 ×'+ultMult.toFixed(1);
   const wrap=$('ultCells'); wrap.innerHTML='';
   _shuf([correct,...pool]).forEach(ch=>{const b=document.createElement('button');b.className='qcand';b.textContent=ch;b.onclick=()=>onUltPick(ch);wrap.appendChild(b);});
