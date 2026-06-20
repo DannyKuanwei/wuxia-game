@@ -19,6 +19,13 @@ html,body{margin:0;height:100%;overflow:hidden;background:#040d0a;font-family:"M
 #saveCodeBox{display:none;width:100%;box-sizing:border-box;height:70px;margin:6px 0;padding:8px;border-radius:8px;border:1px solid #6fae8f;background:#0e1512;color:#bfe;font-size:11px;font-family:monospace;resize:none;word-break:break-all}
 #saveImportBox{flex:1;padding:10px;border-radius:8px;border:1px solid #6fae8f;background:#0e1512;color:#fff;font-size:13px;text-transform:none;letter-spacing:normal;text-align:left}
 #gfxBtn{position:fixed;top:48px;right:14px;z-index:60;background:rgba(40,40,55,.9);color:#fff;border:2px solid #888;border-radius:10px;padding:7px 11px;font-size:14px;font-family:inherit;cursor:pointer}
+#setBtn{position:fixed;top:10px;left:50%;transform:translateX(-50%);z-index:62;background:rgba(30,38,32,.92);color:#fff;border:2px solid #6fae8f;border-radius:50%;width:42px;height:42px;font-size:20px;font-family:inherit;cursor:pointer;line-height:1}
+#setModal{position:fixed;inset:0;z-index:135;background:rgba(0,0,0,.66);display:flex;align-items:center;justify-content:center}
+.setcard{background:#1c2620;border:2px solid #6fae8f;border-radius:16px;padding:20px;width:300px;max-width:92vw;text-align:center;color:#e8e0c8}
+.setcard h2{margin:0 0 14px;font-size:20px;color:#fff}
+.setrow{display:block;width:100%;margin:7px 0;padding:13px;border-radius:10px;border:1px solid #3a4a3a;background:#27332b;color:#fff;font-size:16px;font-family:inherit;cursor:pointer;text-align:left}
+.setrow:active{background:#33453a}
+.setx{margin-top:12px;background:none;border:none;color:#9aa;cursor:pointer;font-size:14px}
 #saveToast{position:fixed;top:84px;right:14px;z-index:61;background:rgba(43,122,75,.92);color:#fff;border-radius:8px;padding:6px 12px;font-size:13px;opacity:0;transition:opacity .3s;pointer-events:none}
 #saveToast.show{opacity:1}
 #bagModal{position:fixed;inset:0;z-index:130;background:rgba(0,0,0,.65);display:flex;align-items:center;justify-content:center}
@@ -389,6 +396,20 @@ body.touch #ultBtn{right:16px;bottom:270px}
 <div id="bossBar"><div class="bn" id="bossName">賊首</div><div class="bh"><span id="bossFill" style="transform:scaleX(1)"></span></div></div>
 <div id="skillCdRing"><svg viewBox="0 0 42 42"><circle cx="21" cy="21" r="19" id="cdCircle"/></svg></div>
 
+<!-- 設定（把組隊/裝備/存檔/畫質/音樂收進來，避免擋到名字封條）-->
+<button id="setBtn" style="display:none" onclick="window.setOpen&&setOpen()">⚙</button>
+<div id="setModal" style="display:none">
+  <div class="setcard">
+    <h2>⚙ 設定</h2>
+    <button class="setrow" onclick="window.setGo&&setGo('mp')">🤝 組隊（多人連線）</button>
+    <button class="setrow" onclick="window.setGo&&setGo('bag')">🎒 裝備 / 背包</button>
+    <button class="setrow" onclick="window.setGo&&setGo('save')">💾 存檔管理</button>
+    <button class="setrow" id="setGfxRow" onclick="window.toggleGfx&&toggleGfx()">🎚️ 畫質：美</button>
+    <button class="setrow" id="setMuteRow" onclick="window.setMute&&setMute()">🔊 音樂：開</button>
+    <button class="setx" onclick="window.setClose&&setClose()">✕ 關閉</button>
+  </div>
+</div>
+
 <button id="gfxBtn" style="display:none" onclick="window.toggleGfx&&toggleGfx()">🎚️ 順</button>
 <div id="saveToast">💾 已存檔</div>
 
@@ -520,7 +541,12 @@ const $    = id => document.getElementById(id);
 const rand = (a,b) => Math.floor(a+Math.random()*(b-a+1));
 const dist2= (a,b) => Math.hypot(a.position.x-b.position.x,a.position.z-b.position.z);
 const clamp= (v,a,b) => Math.max(a,Math.min(b,v));
-function showHUD(){['minimap','wanted','topright','playerHud','hotbar','bottomleft','hint','xhair','questPanel','skillCdRing','ultBtn'].forEach(id=>$(id).style.display='');$('mpBtn').style.display='block';$('bagBtn').style.display='block';$('menuBtn').style.display='block';$('gfxBtn').style.display='block';$('gfxBtn').textContent=_lowGfx?'🎚️ 順':'🎚️ 美';if(typeof refreshBagBtn==='function')refreshBagBtn();}
+function showHUD(){['minimap','wanted','topright','playerHud','hotbar','bottomleft','hint','xhair','questPanel','skillCdRing','ultBtn'].forEach(id=>$(id).style.display='');$('setBtn').style.display='block';if(typeof refreshBagBtn==='function')refreshBagBtn();}
+// ── 設定選單：把組隊/裝備/存檔/畫質/音樂收進來 ──
+window.setOpen=()=>{ if(mode!=='play'){floatText(hero.position,'先進入江湖','#aaa');return;} $('setModal').style.display='flex'; $('setGfxRow').textContent='🎚️ 畫質：'+(_lowGfx?'順（省電）':'美'); $('setMuteRow').textContent='🔊 音樂：'+(typeof muted!=='undefined'&&muted?'關':'開'); };
+window.setClose=()=>{ $('setModal').style.display='none'; };
+window.setGo=(which)=>{ setClose(); if(which==='mp')mpOpen(); else if(which==='bag')bagOpen(); else if(which==='save')saveOpen(); };
+window.setMute=()=>{ const mb=$('muteBtn'); if(mb)mb.click(); $('setMuteRow').textContent='🔊 音樂：'+(typeof muted!=='undefined'&&muted?'關':'開'); };
 // ── 觸控裝置偵測 ──
 // 有滑鼠/觸控筆(fine pointer)就走電腦模式；純觸控(只有 coarse)才開手機 UI
 const IS_TOUCH = matchMedia('(pointer:coarse)').matches && !matchMedia('(pointer:fine)').matches;
@@ -559,6 +585,7 @@ window.toggleGfx=()=>{
   renderer.shadowMap.enabled=!_lowGfx;
   scene.traverse(o=>{ if(o.isMesh&&o.material){ if(Array.isArray(o.material))o.material.forEach(m=>m.needsUpdate=true); else o.material.needsUpdate=true; } });
   const gb=$('gfxBtn'); if(gb)gb.textContent=_lowGfx?'🎚️ 順':'🎚️ 美';
+  const gr=$('setGfxRow'); if(gr)gr.textContent='🎚️ 畫質：'+(_lowGfx?'順（省電）':'美');
   if(typeof floatText==='function'&&typeof hero!=='undefined') floatText(hero.position,_lowGfx?'低畫質：更順':'高畫質','#9ad8b0');
 };
 const camera=new THREE.PerspectiveCamera(52,innerWidth/innerHeight,.1,600);
