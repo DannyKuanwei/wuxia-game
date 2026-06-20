@@ -521,8 +521,45 @@ function bldg(x,z,w,d,h,rh){
   const r=new THREE.Mesh(new THREE.ConeGeometry(Math.max(w,d)*.78,rh,4),brm);r.rotation.y=Math.PI/4;r.position.set(x,h+rh/2,z);r.castShadow=true;scene.add(r);
   const dr=new THREE.Mesh(new THREE.BoxGeometry(1.2,2.2,.1),bdm);dr.position.set(x,1.1,z+d/2+.05);scene.add(dr);
 }
-bldg(-8,-46,8,6,5,3);bldg(7,-49,7,6,4.5,2.8);bldg(-14,-56,6,5,4,2.5);bldg(13,-56,9,7,5.5,3.2);bldg(0,-63,7,6,4,2.6);bldg(-18,-43,5,5,3.5,2);bldg(18,-44,6,5,4,2.5);
+bldg(7,-49,7,6,4.5,2.8);bldg(-14,-56,6,5,4,2.5);bldg(0,-63,7,6,4,2.6);bldg(-18,-43,5,5,3.5,2);bldg(18,-44,6,5,4,2.5);
 bldg(-55,-5,13,10,7,5);bldg(-55,8,9,8,5,4);
+// ── 可進入的民宅：踏進去屋頂自動透明，裡面有東西可撿 ──
+const houses=[], pickups=[];
+function spawnPickup(x,z,def){
+  const g=new THREE.Group(); g.position.set(x,0,z);
+  const col=def.color||0xffcc44;
+  const m=new THREE.Mesh(new THREE.BoxGeometry(.42,.42,.42),new THREE.MeshStandardMaterial({color:col,emissive:col,emissiveIntensity:.35,roughness:.6}));
+  m.position.y=.55;m.castShadow=true;g.add(m);
+  const glow=new THREE.PointLight(col,.5,3);glow.position.y=.7;g.add(glow);
+  scene.add(g); pickups.push({group:g,box:m,def,taken:false,bob:Math.random()*6});
+}
+function home(x,z,w,d,h,rh,items){
+  const g=new THREE.Group(); g.position.set(x,0,z);
+  const fl=new THREE.Mesh(new THREE.BoxGeometry(w,.12,d),new THREE.MeshStandardMaterial({color:0x6b4a2a,roughness:1}));fl.position.y=.06;fl.receiveShadow=true;g.add(fl);
+  const t=.2;
+  const mk=(gw,gh,gd,px,py,pz)=>{const m=new THREE.Mesh(new THREE.BoxGeometry(gw,gh,gd),bwm);m.position.set(px,py,pz);m.castShadow=true;m.receiveShadow=true;g.add(m);};
+  mk(w,h,t,0,h/2,-d/2);            // 後牆
+  mk(t,h,d,-w/2,h/2,0);            // 左牆
+  mk(t,h,d, w/2,h/2,0);            // 右牆
+  const segW=(w-1.6)/2;            // 前牆留門洞
+  mk(segW,h,t,-(0.8+segW/2),h/2,d/2);
+  mk(segW,h,t, (0.8+segW/2),h/2,d/2);
+  const roof=new THREE.Mesh(new THREE.ConeGeometry(Math.max(w,d)*.82,rh,4),brm);roof.rotation.y=Math.PI/4;roof.position.y=h+rh/2;roof.castShadow=true;g.add(roof);
+  scene.add(g);
+  houses.push({x,z,w,d,roof});
+  (items||[]).forEach(it=>spawnPickup(x+it.dx,z+it.dz,it));
+}
+// 兩間有東西可撿的民宅（搞笑戰利品）
+home(-8,-46,9,7,4.6,3,[
+  {dx:-2.4,dz:-1.6,name:'別人家的包子',color:0xe8d8a0,heal:1,xp:8},
+  {dx: 2.6,dz:-1.4,name:'沙發縫的銅板',color:0xffd700,coins:30},
+  {dx: 0.2,dz: 1.8,name:'疑似古董的花瓶',color:0x66aaff,coins:60,xp:20,flag:'_gotVase'},
+]);
+home(13,-56,10,8,5,3.4,[
+  {dx:-3,dz:-2,  name:'藏床底的私房錢',color:0xffcc33,coins:50},
+  {dx: 3,dz:-1.8,name:'過期的靈丹',     color:0x88aaff,mp:1,xp:6},
+  {dx: 0,dz: 2.2,name:'祖傳內功秘笈',   color:0xff66cc,xp:90},
+]);
 function stall(x,z,ry){
   const g=new THREE.Group(),pm=new THREE.MeshStandardMaterial({color:0x7a5a30});
   for(const[px,pz]of[[-1.5,-1],[1.5,-1],[-1.5,1],[1.5,1]]){const p=new THREE.Mesh(new THREE.CylinderGeometry(.12,.12,2.5,6),pm);p.position.set(px,1.25,pz);g.add(p);}
@@ -730,7 +767,16 @@ const P={
 const WANTED_TXT=['☆☆☆☆☆','★☆☆☆☆','★★☆☆☆','★★★☆☆','★★★★☆','★★★★★'];
 function setWanted(n){P.wanted=clamp(n,0,5);P.wantedCd=35;$('wanted').textContent=WANTED_TXT[P.wanted];$('wanted').style.color=P.wanted>=4?'#ff4422':P.wanted>=2?'#ff9900':P.wanted>=1?'#ffd700':'rgba(255,215,0,.25)';if(P.wanted>=1)showWantedPoster();}
 const LEVEL_QUIPS=['⬆ 升級！','武功更高了，名字一樣長','⬆ 升級！（褲子還是破的）','悟了！但還是記不住自己名字','⬆ 升級！氣勢+1 智商持平'];
-function gainXP(n){P.xp+=n;if(P.xp>=P.xpNext){P.xp-=P.xpNext;P.level++;P.xpNext=Math.floor(P.xpNext*1.5);P.maxhp+=20;P.hp=P.maxhp;P.maxmp+=10;P.atk+=3;floatText(hero.position,LEVEL_QUIPS[Math.floor(Math.random()*LEVEL_QUIPS.length)],'#ffd700');$('lvTxt').textContent=P.level;sfxLevel();}}
+function gainXP(n){P.xp+=n;
+  while(P.xp>=P.xpNext){
+    P.xp-=P.xpNext;P.level++;P.xpNext=Math.floor(P.xpNext*1.5);P.maxhp+=22;P.hp=P.maxhp;P.maxmp+=10;P.atk+=4;
+    floatText(hero.position,LEVEL_QUIPS[Math.floor(Math.random()*LEVEL_QUIPS.length)],'#ffd700');
+    setTimeout(()=>floatText(hero.position,'❤+22 ⚔+4 內力+10 滿血回復','#8fe6b0'),420);
+    if(P.level%3===0){ P.potions+=2; P.mmpotions+=1; setTimeout(()=>floatText(hero.position,'🏅 里程碑！傷藥+2 靈丹+1','#ffd700'),840); }   // 每3級額外獎勵
+    $('lvTxt').textContent=P.level;sfxLevel();
+  }
+  refreshHud();
+}
 function addCoins(n){P.coins+=n;$('coinsTxt').textContent=P.coins;}
 
 // ── class definitions ──
@@ -1141,12 +1187,16 @@ function drawBar(s,r){
   c.strokeStyle='#0d2a18';c.strokeRect(1,1,126,16);tex.needsUpdate=true;
 }
 const npcs=[];
+const MOB_DIFF={hp:1.6,atk:1.3};   // 小怪變硬、打更痛
 NPC_DEFS.forEach(def=>{
   const mesh=mkNPC(def.color);mesh.position.set(def.pos[0],0,def.pos[1]);
   const bar=mkBar();bar.position.set(0,2.7,0);bar.visible=false;mesh.add(bar);drawBar(bar,1);
   scene.add(mesh);
   const hostileType=def.type==='bandit'||def.type==='hermit'||def.type==='cultboss';
-  npcs.push({def,mesh,bar,hp:def.hp,maxhp:def.hp,alive:true,state:hostileType?'patrol':(def.patrol?'patrol':def.spd===0?'idle':'wander'),patrolIdx:0,wanderTarget:null,wanderTimer:0,atkTimer:def.cd||1.4,flash:0,hostile:hostileType,loot:Math.max(3,Math.floor(def.hp/7))});
+  const isCombat=def.type==='bandit'||def.type==='hermit'||def.type==='guard';   // 戰鬥型加難度（魔王另外調）
+  const mhp=isCombat?Math.round(def.hp*MOB_DIFF.hp):def.hp;
+  const matk=isCombat?Math.round((def.atk||0)*MOB_DIFF.atk):(def.atk||0);
+  npcs.push({def,mesh,bar,hp:mhp,maxhp:mhp,atk:matk,alive:true,state:hostileType?'patrol':(def.patrol?'patrol':def.spd===0?'idle':'wander'),patrolIdx:0,wanderTarget:null,wanderTimer:0,atkTimer:def.cd||1.4,flash:0,hostile:hostileType,loot:Math.max(3,Math.floor(mhp/7))});
 });
 let kills=0;
 
@@ -1476,7 +1526,7 @@ function respawnNPC(e){
   e.mesh.position.set(e.def.pos[0]+Math.cos(a)*r,0,e.def.pos[1]+Math.sin(a)*r);scene.add(e.mesh);
 }
 function damagePlayer(e){
-  const raw=Math.floor(e.def.atk*(1+P.level*.05));
+  const raw=Math.floor((e.atk||e.def.atk)*(1+P.level*.05));
   let dmg;
   if(P.blocking&&P.parryWin>0){          // 完美彈反！
     floatText(hero.position,'⚔ 完美彈反！','#ffe14d');
@@ -1500,10 +1550,14 @@ function refreshHud(){
   $('coinsTxt').textContent=P.coins;$('potCnt').textContent=P.potions;$('mpPotCnt').textContent=P.mmpotions;
   $('slot0').textContent=P.weapon==='bow'?'🏹':P.weapon==='sword2'?'🗡️':P.weapon==='bigsword'?'🗡️':'⚔️';
 }
-const ZONES=[{name:'竹林・初境',x:0,z:0,r:32},{name:'北村・桃源',x:0,z:-52,r:26},{name:'東嶺・深山',x:68,z:-12,r:32},{name:'南境・匪巢',x:0,z:36,r:28},{name:'巨龍山洞',x:0,z:72,r:18},{name:'西寺・古剎',x:-55,z:2,r:22}];
+const ZONES=[{name:'竹林・初境',x:0,z:0,r:32,lv:1},{name:'北村・桃源',x:0,z:-52,r:26,lv:1},{name:'東嶺・深山',x:68,z:-12,r:32,lv:6},{name:'南境・匪巢',x:0,z:36,r:28,lv:3},{name:'巨龍山洞',x:0,z:72,r:18,lv:7},{name:'西寺・古剎',x:-55,z:2,r:22,lv:2}];
 let curZone='';
 function updateZone(){
-  for(const z of ZONES){if(Math.hypot(hero.position.x-z.x,hero.position.z-z.z)<z.r){if(curZone!==z.name){curZone=z.name;const zn=$('zoneName');zn.textContent=z.name;zn.style.opacity=1;$('zoneTxt').textContent=z.name;setTimeout(()=>zn.style.opacity=0,2500);}return;}}
+  for(const z of ZONES){if(Math.hypot(hero.position.x-z.x,hero.position.z-z.z)<z.r){if(curZone!==z.name){curZone=z.name;
+    const under=z.lv&&P.level<z.lv;
+    const zn=$('zoneName');zn.textContent=z.name+(z.lv>1?'（建議 Lv'+z.lv+'）':'');zn.style.opacity=1;zn.style.color=under?'#ff7a5a':'';$('zoneTxt').textContent=z.name;setTimeout(()=>zn.style.opacity=0,2500);
+    if(under){ floatText(hero.position,'⚠ 等級不足！建議 Lv'+z.lv+'（你 Lv'+P.level+'）這裡的怪會很硬','#ff7a5a'); }
+  }return;}}
   if(curZone!=='曠野'){curZone='曠野';$('zoneTxt').textContent='江湖曠野';}
 }
 const mmCtx=$('mmCanvas').getContext('2d');
@@ -1580,6 +1634,18 @@ function claimQuest(){
   setTimeout(startNextQuest,1500);
 }
 
+// ── 撿地上的東西 ──
+function grabPickup(pk){
+  if(pk.taken) return; pk.taken=true; scene.remove(pk.group);
+  const d=pk.def;
+  if(d.coins) addCoins(d.coins);
+  if(d.heal)  P.potions+=d.heal;
+  if(d.mp)    P.mmpotions+=d.mp;
+  if(d.flag)  P[d.flag]=true;
+  if(d.xp)    gainXP(d.xp);
+  sfxGold(); refreshHud();
+  floatText(pk.group.position,'拿到「'+d.name+'」'+(d.coins?' +'+d.coins+'🪙':'')+(d.xp?' +'+d.xp+'XP':''),'#ffe14d');
+}
 // ── 寶箱互動 ──
 function openChest(chest){
   if(chest.open) return;
@@ -1632,7 +1698,9 @@ window.buyItem=id=>{
 };
 function interact(){
   if(inDlg){closeDlg();return;}
-  // 寶箱優先
+  // 地上的東西優先撿
+  for(const pk of pickups){if(pk.taken)continue;const d=Math.hypot(hero.position.x-pk.group.position.x,hero.position.z-pk.group.position.z);if(d<1.8){grabPickup(pk);return;}}
+  // 寶箱
   for(const c of chests){if(c.open)continue;const d=Math.hypot(hero.position.x-c.group.position.x,hero.position.z-c.group.position.z);if(d<2.5){openChest(c);return;}}
   let best=null,bd=4.5;
   for(const e of npcs){if(!e.alive||!e.def.dialogue)continue;const d=dist2(hero,e.mesh);if(d<bd){best=e;bd=d;}}
@@ -1642,8 +1710,34 @@ function interact(){
       showDlg(best.def.name,CLUES[best.def.name]); updateQuestIntel(best.def.name);   // 打聽情報
     }
     else if(best.def.shop){$('shop').style.display='block';inDlg=true;}
+    else if(civilianSideQuest(best)){ /* 有觸發搞笑支線 */ }
     else{const ls=best.def.dialogue;showDlg(best.def.name,ls[Math.floor(Math.random()*ls.length)]);}
   }
+}
+// 搞笑支線：用對話 + 撿到的東西結算，不佔主線任務欄
+function civilianSideQuest(e){
+  const nm=e.def.name;
+  if(nm==='村婦'){
+    if(P._vaseDone) return false;
+    if(P._gotVase){
+      showChoice('村婦','「那、那是我家祖傳的花瓶！你從我家拿的對吧？！」',[
+        {label:'物歸原主（+80🪙 +60XP）',fn:()=>{P._vaseDone=true;P._gotVase=false;addCoins(80);gainXP(60);floatText(hero.position,'村婦感激涕零！+80🪙 +60XP','#ffd700');}},
+        {label:'這是我撿的（耍賴）',fn:()=>{P._vaseDone=true;setWanted(Math.min(5,P.wanted+1));showDlg('村婦','「強盜啊——！這名字長的人是強盜啊——！」');}},
+      ]);
+      return true;
+    }
+    showDlg('村婦','「唉，我家祖傳的花瓶不見了…會不會是被誰拿走了？（你要不要進我家找找？）」');
+    return true;
+  }
+  if(nm==='孩童'){
+    if(P._kidDone) return false;
+    showChoice('孩童','「大俠哥哥！我長大也想當大俠，可是我好怕痛喔…怎麼辦？」',[
+      {label:'傳授「以名服人」心法（+40XP）',fn:()=>{P._kidDone=true;gainXP(40);showDlg('孩童','「哇！只要報出超長名字敵人就會愣住！我學會了！（+40XP 師父經驗）」');}},
+      {label:'當大俠很慘，回家吃飯吧',fn:()=>{P._kidDone=true;showDlg('孩童','「…嗯！我決定當廚師了，謝謝大俠哥哥！」');}},
+    ]);
+    return true;
+  }
+  return false;
 }
 // ── 二選一對話 + 鐵匠刻字支線 ──
 function showChoice(name,html,options){
@@ -1942,9 +2036,13 @@ function animate(){
     }
     hero.scale.y=P.crouching?.65:1;
     updateZone();
+    // 進屋→屋頂透明；地上的東西飄浮旋轉
+    for(const hs of houses){ const inside=Math.abs(hero.position.x-hs.x)<hs.w/2+0.7 && Math.abs(hero.position.z-hs.z)<hs.d/2+0.7; hs.roof.visible=!inside; }
+    for(const pk of pickups){ if(pk.taken)continue; pk.box.position.y=.55+Math.sin(t*3+pk.bob)*.12; pk.box.rotation.y+=dt*1.6; }
     let near=false;
     const IKEY=IS_TOUCH?'點 💬':'[ E ]';
-    for(const c of chests){if(!c.open&&Math.hypot(hero.position.x-c.group.position.x,hero.position.z-c.group.position.z)<2.5){$('interactPrompt').style.display='block';$('interactPrompt').textContent=IKEY+' 開啟 '+c.def.label;near=true;break;}}
+    for(const pk of pickups){if(!pk.taken&&Math.hypot(hero.position.x-pk.group.position.x,hero.position.z-pk.group.position.z)<1.8){$('interactPrompt').style.display='block';$('interactPrompt').textContent=IKEY+' 撿「'+pk.def.name+'」';near=true;break;}}
+    if(!near){for(const c of chests){if(!c.open&&Math.hypot(hero.position.x-c.group.position.x,hero.position.z-c.group.position.z)<2.5){$('interactPrompt').style.display='block';$('interactPrompt').textContent=IKEY+' 開啟 '+c.def.label;near=true;break;}}}
     if(!near){for(const e of npcs){if(!e.alive||!e.def.dialogue)continue;if(dist2(hero,e.mesh)<4.0){$('interactPrompt').style.display='block';$('interactPrompt').textContent=IKEY+' 與 '+e.def.name+' 互動';near=true;break;}}}
     if(!near) $('interactPrompt').style.display='none';
     // NPC AI
