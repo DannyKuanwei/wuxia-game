@@ -49,7 +49,10 @@ html,body{margin:0;height:100%;overflow:hidden;background:#040d0a;font-family:"M
 .mpjoin{display:flex;gap:6px}
 .mpjoin input{flex:1;padding:10px;border-radius:8px;border:1px solid #6fae8f;background:#0e1512;color:#fff;font-size:16px;text-transform:uppercase;text-align:center;letter-spacing:3px}
 .mpjoin button{padding:10px 14px;border-radius:8px;border:none;background:#2b7a4b;color:#fff;font-family:inherit;cursor:pointer}
-.mpx{margin-top:14px;background:none;border:none;color:#9aa;cursor:pointer;font-size:13px}
+.mpx{margin-top:10px;background:none;border:none;color:#9aa;cursor:pointer;font-size:13px}
+#mpRoom{display:flex;align-items:center;justify-content:center;gap:8px;margin:-4px 0 12px;font-size:15px;color:#e8e0c8}
+#mpRoom b{font-size:22px;letter-spacing:3px;color:#ffd96b;font-family:monospace}
+#mpCopy{padding:5px 10px;border-radius:7px;border:1px solid #6fae8f;background:#234;color:#cfe;font-family:inherit;cursor:pointer;font-size:13px}
 #flash.on{animation:fa .3s ease}
 @keyframes fa{0%{opacity:0}30%{opacity:.38}100%{opacity:0}}
 
@@ -398,11 +401,13 @@ body.touch #ultBtn{right:16px;bottom:270px}
 <div id="mpModal" style="display:none">
   <div class="mpcard">
     <h2>🤝 組隊（2–3 人）</h2>
-    <div id="mpStatus" class="mps">尚未連線</div>
+    <div id="mpStatus" class="mps">開一桌，把房號給朋友就能一起玩</div>
+    <div id="mpRoom" style="display:none"><span>房號 <b id="mpRoomCode">——</b></span><button id="mpCopy" onclick="window.mpCopy&&mpCopy()">📋 複製</button></div>
     <button class="mpbig" onclick="window.mpHost&&mpHost()">開新隊伍（產生房號）</button>
     <div class="mpor">— 或 —</div>
     <div class="mpjoin"><input id="mpCode" maxlength="6" placeholder="輸入 6 碼房號" autocomplete="off"><button onclick="window.mpJoin&&mpJoin()">加入</button></div>
     <button class="mpbig demo" onclick="window.mpDemo&&mpDemo()">👻 召喚 demo 隊友（本機預覽）</button>
+    <button class="mpx" onclick="window.mpLeaveBtn&&mpLeaveBtn()">🚪 離開隊伍</button>
     <button class="mpx" onclick="window.mpClose&&mpClose()">✕ 關閉</button>
   </div>
 </div>
@@ -2132,35 +2137,62 @@ function gameOver(){
   $('goScreen').style.display='flex';
 }
 
-// ══════════ 多人組隊（Supabase Realtime）第一步：連線＋看到彼此＋隊友血條 ══════════
-// 填入你的 Supabase 專案後即可真連線；未填則只有本機 demo 隊友可預覽
+// ══════════ 多人組隊：真連線（PeerJS 免費 broker，零設定）＋看到彼此＋同步動畫/血條 ══════════
+// 預設走 PeerJS（靜態網站即可真連線，host 為星狀中繼）；若填了 Supabase 則改用 Supabase
 const MP_URL='', MP_ANON='';
-const mp={active:false,code:'',isHost:false,supa:null,channel:null,me:null,peers:new Map(),sendT:0};
+const mp={active:false,code:'',isHost:false,mode:'',supa:null,channel:null,peerjs:null,conns:[],me:null,peers:new Map(),sendT:0};
 const ROLE_OF=c=>c==='knight'?'坦克':c==='healer'?'補師':'輸出';
 const CLS_COLOR={knight:0xe8c34a,sword:0x9aa6b2,assassin:0x9a6ad8,healer:0x4fd38a,archer:0xc09050};
-window.mpOpen =()=>{ if(mode!=='play'){floatText(hero.position,'先進入江湖再組隊','#aaa');return;} $('mpModal').style.display='flex'; $('mpStatus').textContent=mp.active?('已在隊伍　房號：'+mp.code):(MP_URL?'尚未連線':'⚠ 尚未設定 Supabase（可先用 demo 隊友預覽）'); };
+window.mpOpen =()=>{ if(mode!=='play'){floatText(hero.position,'先進入江湖再組隊','#aaa');return;} $('mpModal').style.display='flex'; if(mp.active){ mpRoomShow(mp.code); $('mpStatus').textContent='已在隊伍　房號：'+mp.code; } else { mpRoomHide(); $('mpStatus').textContent='開一桌，把房號給朋友就能一起玩'; } };
 window.mpClose=()=>{ $('mpModal').style.display='none'; };
 function mpCode(){ const s='ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; let c=''; for(let i=0;i<6;i++)c+=s[Math.floor(Math.random()*s.length)]; return c; }
-function makePeerAvatar(cls,name){
+// 隊友 avatar：先放膠囊佔位 → 非同步載入該職業真實 3D 模型（共用快取＋骨架複製）
+function buildPeerAvatar(p){
   const g=new THREE.Group();
-  const col=CLS_COLOR[cls]||0x88aa88;
-  const body=new THREE.Mesh(new THREE.CapsuleGeometry(.42,.9,4,8),new THREE.MeshStandardMaterial({color:col,roughness:.7}));body.position.y=1.0;body.castShadow=true;g.add(body);
-  const head=new THREE.Mesh(new THREE.SphereGeometry(.32,12,12),new THREE.MeshStandardMaterial({color:0xe6b88f,roughness:.8}));head.position.y=1.85;g.add(head);
+  const col=CLS_COLOR[p.cls]||0x88aa88;
+  // 膠囊佔位（模型載入後隱藏）
+  const ph=new THREE.Group();
+  const body=new THREE.Mesh(new THREE.CapsuleGeometry(.42,.9,4,8),new THREE.MeshStandardMaterial({color:col,roughness:.7}));body.position.y=1.0;body.castShadow=true;ph.add(body);
+  const head=new THREE.Mesh(new THREE.SphereGeometry(.32,12,12),new THREE.MeshStandardMaterial({color:0xe6b88f,roughness:.8}));head.position.y=1.85;ph.add(head);
+  g.add(ph);
   // 名牌
   const cv=document.createElement('canvas');cv.width=256;cv.height=64;const c=cv.getContext('2d');
   c.fillStyle='#fff';c.font='bold 34px "Microsoft JhengHei",sans-serif';c.textAlign='center';c.textBaseline='middle';
-  c.lineWidth=5;c.strokeStyle='#000';c.strokeText(name,128,32);c.fillText(name,128,32);
-  const tag=new THREE.Sprite(new THREE.SpriteMaterial({map:new THREE.CanvasTexture(cv),transparent:true}));tag.scale.set(2.4,.6,1);tag.position.y=2.6;g.add(tag);
+  c.lineWidth=5;c.strokeStyle='#000';c.strokeText(p.name,128,32);c.fillText(p.name,128,32);
+  const tag=new THREE.Sprite(new THREE.SpriteMaterial({map:new THREE.CanvasTexture(cv),transparent:true,depthTest:false}));tag.scale.set(2.4,.6,1);tag.position.y=2.6;tag.renderOrder=999;g.add(tag);
   const bar=mkBar();bar.position.y=2.25;g.add(bar);drawBar(bar,1);
   scene.add(g);
-  return {group:g,hpbar:bar};
+  p.group=g; p.hpbar=bar; p.placeholder=ph; p.mixer=null; p.clips=null; p.curAct=null; p.curAnim='';
+  // 真實職業模型
+  const cfg=HERO_MODELS[p.cls]||HERO_MODELS.knight;
+  loadModelCached(cfg.model,gl=>{
+    if(!mp.peers.has(p.id))return;   // 期間已離線
+    const model=skeletonClone(gl.scene);
+    const bx=new THREE.Box3().setFromObject(model),sz=new THREE.Vector3();bx.getSize(sz);
+    model.scale.setScalar((cfg.mh||HERO_HEIGHT)/(sz.y||1));
+    const bx2=new THREE.Box3().setFromObject(model); model.position.y=-bx2.min.y;
+    model.rotation.y=HERO_FACING_OFFSET;
+    model.traverse(o=>{if(o.isMesh){o.castShadow=true;o.frustumCulled=false;}});
+    g.add(model); ph.visible=false; p.model=model;
+    if(gl.animations&&gl.animations[0]){ p.mixer=new THREE.AnimationMixer(model); p.clips={walk:gl.animations[0]}; }
+  },()=>{/* 模型未就緒就保留膠囊 */});
+}
+// 隊友動畫：只有走路片段，idle=定格、run=加速
+function playPeerAnim(p,name){
+  if(!p.mixer||!p.clips||!p.clips.walk||p.curAnim===name)return;
+  const act=p.mixer.clipAction(p.clips.walk); act.reset();
+  if(name==='idle'){ act.play(); act.paused=true; act.time=0; }
+  else{ act.paused=false; act.setEffectiveTimeScale(name==='run'?1.5:1); act.setLoop(THREE.LoopRepeat,Infinity); act.play(); }
+  if(p.curAct&&p.curAct!==act){ p.curAct.fadeOut?.(.15); }
+  act.fadeIn?.(.15); p.curAct=act; p.curAnim=name;
 }
 function addPeer(id,info){
   if(mp.peers.has(id)||id===(mp.me&&mp.me.id))return;
-  const av=makePeerAvatar(info.cls,info.name||'隊友');
   const sx=hero.position.x+rand(-4,4),sz=hero.position.z+rand(-4,4);
-  av.group.position.set(sx,0,sz);
-  mp.peers.set(id,{id,name:info.name||'隊友',cls:info.cls,role:ROLE_OF(info.cls),x:sx,z:sz,ry:0,tx:sx,tz:sz,tRy:0,hp:info.maxhp||120,maxhp:info.maxhp||120,mp:info.maxmp||60,maxmp:info.maxmp||60,demo:!!info.demo,...av});
+  const p={id,name:info.name||'隊友',cls:info.cls||'sword',role:ROLE_OF(info.cls),x:sx,z:sz,ry:0,tx:sx,tz:sz,tRy:0,hp:info.maxhp||120,maxhp:info.maxhp||120,mp:info.maxmp||60,maxmp:info.maxmp||60,demo:!!info.demo,anim:'idle'};
+  buildPeerAvatar(p);
+  p.group.position.set(sx,0,sz);
+  mp.peers.set(id,p);
   rebuildFrames();
 }
 function removePeer(id){ const p=mp.peers.get(id); if(!p)return; scene.remove(p.group); mp.peers.delete(id); rebuildFrames(); }
@@ -2178,35 +2210,105 @@ function rebuildFrames(){
     wrap.appendChild(d);
   }
 }
+function mpSelfPayload(){
+  return {id:mp.me.id,name:mp.me.name,cls:chosenClass,x:+hero.position.x.toFixed(2),z:+hero.position.z.toFixed(2),ry:+hero.rotation.y.toFixed(2),hp:Math.round(P.hp),maxhp:P.maxhp,mp:Math.round(P.mp),maxmp:P.maxmp,anim:heroMoving?(P.sprinting?'run':'walk'):'idle'};
+}
+function mpSend(payload){
+  if(mp.mode==='supa'&&mp.channel){ mp.channel.send({type:'broadcast',event:'state',payload}); }
+  else if(mp.mode==='peer'){ for(const c of mp.conns){ if(c&&c.open){ try{c.send(payload);}catch(_){} } } }
+}
 function mpTick(dt){
   // 廣播自己（~10Hz）
   mp.sendT-=dt;
-  if(mp.sendT<=0 && mp.channel){ mp.sendT=.1;
-    mp.channel.send({type:'broadcast',event:'state',payload:{id:mp.me.id,name:mp.me.name,cls:chosenClass,x:+hero.position.x.toFixed(2),z:+hero.position.z.toFixed(2),ry:+hero.rotation.y.toFixed(2),hp:Math.round(P.hp),maxhp:P.maxhp,mp:Math.round(P.mp),maxmp:P.maxmp,anim:heroMoving?(P.sprinting?'run':'walk'):'idle'}});
-  }
-  // 內插＋更新隊友 avatar/血條
+  if(mp.sendT<=0 && mp.me && (mp.channel||mp.conns.length)){ mp.sendT=.1; mpSend(mpSelfPayload()); }
+  // 內插＋更新隊友 avatar/血條/動畫
   for(const p of mp.peers.values()){
-    if(p.demo){ const a=t*.5; p.tx=hero.position.x+Math.cos(a)*5; p.tz=hero.position.z+Math.sin(a)*5; p.tRy=a+Math.PI/2; }
+    if(p.demo){ const a=t*.5; p.tx=hero.position.x+Math.cos(a)*5; p.tz=hero.position.z+Math.sin(a)*5; p.tRy=a+Math.PI/2; p.anim='walk'; }
     p.x+=(p.tx-p.x)*Math.min(1,dt*10); p.z+=(p.tz-p.z)*Math.min(1,dt*10);
     let dr=p.tRy-p.ry; while(dr>Math.PI)dr-=2*Math.PI; while(dr<-Math.PI)dr+=2*Math.PI; p.ry+=dr*Math.min(1,dt*10);
     p.group.position.set(p.x,0,p.z); p.group.rotation.y=p.ry;
+    if(p.mixer){ playPeerAnim(p,p.anim||'idle'); p.mixer.update(dt); }
     drawBar(p.hpbar,Math.max(0,p.hp/p.maxhp));
     const fr=$('pf_'+p.id); if(fr){ fr.querySelector('.pfhp').style.transform='scaleX('+Math.max(0,p.hp/p.maxhp)+')'; fr.querySelector('.pfmpf').style.transform='scaleX('+Math.max(0,p.mp/p.maxmp)+')'; }
   }
 }
-window.mpDemo=()=>{ mp.active=true; if(!mp.me)mp.me={id:'me',name:'我'}; addPeer('demo1',{cls:'healer',name:'藥師·小芳',maxhp:120,demo:true}); $('mpStatus').textContent='已召喚 demo 隊友（本機預覽，非真連線）'; floatText(hero.position,'demo 隊友已加入！','#9ad8b0'); setTimeout(mpClose,700); };
+function mpMyName(){ return chosenClass==='knight'?'大俠':chosenClass==='healer'?'藥師':chosenClass==='archer'?'神射':chosenClass==='assassin'?'刺客':'劍俠'; }
+function mpRoomShow(code){ const r=$('mpRoom'); if(r){ r.style.display='flex'; $('mpRoomCode').textContent=code; } }
+function mpRoomHide(){ const r=$('mpRoom'); if(r) r.style.display='none'; }
+window.mpCopy=()=>{ const c=mp.code||$('mpRoomCode').textContent; if(navigator.clipboard){ navigator.clipboard.writeText(c).then(()=>{$('mpStatus').textContent='✓ 房號已複製：'+c+'　貼給朋友吧';}).catch(()=>{}); } };
+function mpLeave(reason){
+  for(const id of [...mp.peers.keys()]) removePeer(id);
+  mp.active=false; mp.conns=[]; mp.mode=''; mp.channel=null;
+  if(mp.peerjs){ try{mp.peerjs.destroy();}catch(_){} mp.peerjs=null; }
+  mpRoomHide();
+  $('mpStatus').textContent=reason?('已離開隊伍（'+reason+'）'):'已離開隊伍';
+  if(reason) floatText(hero.position,'隊伍解散：'+reason,'#d8a0a0');
+}
+window.mpLeaveBtn=()=>{ mpLeave(''); $('mpStatus').textContent='已離開隊伍'; };
+
+window.mpDemo=()=>{ mp.active=true; mp.mode='demo'; if(!mp.me)mp.me={id:'me',name:'我'}; addPeer('demo1',{cls:'healer',name:'藥師·小芳',maxhp:120,demo:true}); $('mpStatus').textContent='已召喚 demo 隊友（本機預覽，非真連線）'; floatText(hero.position,'demo 隊友已加入！','#9ad8b0'); setTimeout(mpClose,700); };
+
+// ── 真連線：PeerJS（免費公用 broker，靜態網站即可用，零設定）──
+const PEER_NS='dxbb-';   // 房號命名空間，避免撞到別的 app
+function mpLoadPeer(){
+  return new Promise((res,rej)=>{
+    if(window.Peer) return res(window.Peer);
+    const s=document.createElement('script');
+    s.src='https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js';
+    s.onload=()=>window.Peer?res(window.Peer):rej(new Error('PeerJS 載入異常'));
+    s.onerror=()=>rej(new Error('連線元件載入失敗（檢查網路）'));
+    document.head.appendChild(s);
+  });
+}
+function mpRelay(d,from){ for(const c of mp.conns){ if(c!==from&&c.open){ try{c.send(d);}catch(_){} } } }
+function mpHookConn(conn,asHost){
+  conn.on('open',()=>{
+    if(!mp.conns.includes(conn)) mp.conns.push(conn);
+    try{ conn.send(mpSelfPayload()); }catch(_){}
+    if(!asHost){
+      mp.active=true; mpRoomShow(mp.code);
+      $('mpStatus').textContent='✓ 已加入隊伍 '+mp.code+'！';
+      floatText(hero.position,'已加入隊伍 '+mp.code,'#9ad8b0'); setTimeout(mpClose,900);
+    }
+  });
+  conn.on('data',d=>{ if(!d||!d.id)return; conn._pid=d.id; onPeerState(d); if(asHost) mpRelay(d,conn); });
+  conn.on('close',()=>{
+    mp.conns=mp.conns.filter(c=>c!==conn);
+    if(asHost){ if(conn._pid)removePeer(conn._pid); }
+    else if(mp.mode==='peer'){ mpLeave('與房主斷線'); }
+  });
+  conn.on('error',()=>{});
+}
+async function mpConnectPeer(code,isHost){
+  $('mpStatus').textContent='連線中…';
+  let Peer;
+  try{ Peer=await mpLoadPeer(); }catch(e){ $('mpStatus').textContent='⚠ '+e.message; return; }
+  mp.mode='peer'; mp.code=code; mp.isHost=isHost; mp.conns=[];
+  mp.me={id:'p'+Math.random().toString(36).slice(2,8),name:mpMyName()};
+  if(isHost){
+    mp.peerjs=new Peer(PEER_NS+code);
+    mp.peerjs.on('open',()=>{ mp.active=true; mpRoomShow(code); $('mpStatus').textContent='✓ 隊伍已開！把房號給朋友：'+code; floatText(hero.position,'隊伍已開 '+code,'#9ad8b0'); });
+    mp.peerjs.on('connection',conn=>mpHookConn(conn,true));
+    mp.peerjs.on('error',e=>{ $('mpStatus').textContent=(e&&e.type==='unavailable-id')?'此房號剛好被占用，請再按一次「開新隊伍」':('連線錯誤：'+((e&&e.type)||e)); });
+  }else{
+    mp.peerjs=new Peer();
+    mp.peerjs.on('open',()=>{ const conn=mp.peerjs.connect(PEER_NS+code,{reliable:true}); mpHookConn(conn,false); });
+    mp.peerjs.on('error',e=>{ $('mpStatus').textContent=(e&&e.type==='peer-unavailable')?('找不到隊伍 '+code+'（房號錯，或房主尚未開／已離線）'):('連線錯誤：'+((e&&e.type)||e)); });
+  }
+}
+// Supabase（選用，需自填 MP_URL/MP_ANON）；未設定則走 PeerJS
 async function mpConnect(code,isHost){
-  if(!MP_URL||!MP_ANON){ $('mpStatus').textContent='⚠ 尚未設定 Supabase，無法真連線（可用 demo 隊友）'; return; }
+  if(!MP_URL||!MP_ANON){ return mpConnectPeer(code,isHost); }
   $('mpStatus').textContent='連線中…';
   try{
     const { createClient } = await import('https://esm.sh/@supabase/supabase-js@2');
-    mp.supa=createClient(MP_URL,MP_ANON);
-    mp.me={id:'p'+Math.random().toString(36).slice(2,8),name:(chosenClass==='knight'?'大俠':chosenClass==='healer'?'藥師':'少俠')};
+    mp.supa=createClient(MP_URL,MP_ANON); mp.mode='supa';
+    mp.me={id:'p'+Math.random().toString(36).slice(2,8),name:mpMyName()};
     mp.code=code; mp.isHost=isHost;
     const ch=mp.supa.channel('party:'+code,{config:{broadcast:{self:false},presence:{key:mp.me.id}}});
     ch.on('broadcast',{event:'state'},({payload})=>onPeerState(payload));
     ch.on('presence',{event:'leave'},({key})=>removePeer(key));
-    ch.subscribe(async st=>{ if(st==='SUBSCRIBED'){ await ch.track({name:mp.me.name,cls:chosenClass}); mp.active=true; $('mpStatus').textContent='已加入　房號：'+code+'（把房號給朋友）'; floatText(hero.position,'已加入隊伍 '+code,'#9ad8b0'); setTimeout(mpClose,900); } });
+    ch.subscribe(async st=>{ if(st==='SUBSCRIBED'){ await ch.track({name:mp.me.name,cls:chosenClass}); mp.active=true; mpRoomShow(code); $('mpStatus').textContent='✓ 已加入　房號：'+code+'（把房號給朋友）'; floatText(hero.position,'已加入隊伍 '+code,'#9ad8b0'); setTimeout(mpClose,900); } });
     mp.channel=ch;
   }catch(e){ $('mpStatus').textContent='連線失敗：'+e.message; }
 }
