@@ -1614,6 +1614,15 @@ function damageNPC(e,dmg){
     if(e.state!=='chase')e.state='chase'; if(e._engageTimer==null)e._engageTimer=CONFIG.boss.safetyCastInterval;
     lastCombatTime=0; return;
   }
+  // 隊員：傷害交由房主結算（即時回饋飄字／頓幀，真血由房主廣播回來）
+  if(mpClientActive()){
+    e._hitByMeT=t; e.flash=.16; freeze=Math.max(freeze,.06);
+    const isCrit=dmg>P.atk*1.8;
+    floatText(e.mesh.position,(isCrit?'💥':'')+'-'+Math.round(dmg),isCrit?'#ff4400':'#ffe14d');
+    spawnHitParticles(e.mesh.position,isCrit?0xff3300:0xffcc44,isCrit?10:5);
+    mpSend({t:'hit',i:npcs.indexOf(e),dmg:Math.round(dmg)});
+    lastCombatTime=0; return;
+  }
   e.bar.visible=true;e.hp-=dmg;e.flash=.16;freeze=Math.max(freeze,.06);
   drawBar(e.bar,e.hp/e.maxhp);
   const isCrit=dmg>P.atk*1.8;
@@ -2143,6 +2152,79 @@ const MP_URL='', MP_ANON='';
 const mp={active:false,code:'',isHost:false,mode:'',supa:null,channel:null,peerjs:null,conns:[],me:null,peers:new Map(),sendT:0};
 const ROLE_OF=c=>c==='knight'?'坦克':c==='healer'?'補師':'輸出';
 const CLS_COLOR={knight:0xe8c34a,sword:0x9aa6b2,assassin:0x9a6ad8,healer:0x4fd38a,archer:0xc09050};
+
+// ── 戰鬥同步：房主權威（share 房主的 data）＋主坦引怪 ──
+function mpOn(){ return mp.active && mp.mode!=='demo'; }          // 真連線中（demo 不算）
+function mpHostActive(){ return mpOn() && mp.isHost; }            // 我是房主：跑 AI＋廣播敵人
+function mpClientActive(){ return mpOn() && !mp.isHost; }         // 我是隊員：套用房主資料、傷害回報房主
+// 隊伍成員（含本機），給仇恨計算用
+function partyMembers(){
+  const arr=[{x:hero.position.x,z:hero.position.z,id:mp.me?mp.me.id:'me',isLocal:true,role:ROLE_OF(chosenClass),hp:P.hp}];
+  for(const p of mp.peers.values()) if(!p.demo&&p.hp>0) arr.push({x:p.x,z:p.z,id:p.id,isLocal:false,role:p.role,hp:p.hp});
+  return arr;
+}
+// 主坦引怪：坦克的「視距」打折→更容易被鎖定（taunt）
+function aggroTarget(e){
+  if(!mpHostActive()){ e._tgtMember=null; return hero.position; }
+  let best=null,bestScore=Infinity;
+  for(const m of partyMembers()){
+    let s=Math.hypot(m.x-e.mesh.position.x, m.z-e.mesh.position.z);
+    if(m.role==='坦克') s*=0.45;       // 坦克被視為更近 → 怪優先撲坦
+    if(s<bestScore){bestScore=s;best=m;}
+  }
+  e._tgtMember=best;
+  return best?{x:best.x,z:best.z}:hero.position;
+}
+// 怪出手：命中本機→照舊；命中遠端隊友→把傷害回報給那位隊員自己結算
+function mpDamageTarget(e){
+  const m=e._tgtMember;
+  if(mpHostActive() && m && !m.isLocal){ mpSendOne(m.id,{t:'hurt',to:m.id,atk:(e.atk||e.def.atk||8)}); e.mesh.position.y=.28; }
+  else if(P.dodgeTimer<=0){ damagePlayer(e); }
+}
+// 敵人快照（房主→隊員）：只送有變動的，省頻寬（初始位置雙方一致）
+function buildEnemySnapshot(force){
+  const out=[];
+  for(let i=0;i<npcs.length;i++){ const e=npcs[i];
+    if(e.def.type==='cultboss') continue;                 // 巨龍 Boss 戰各自本地跑（劇情/QTE）
+    const x=+e.mesh.position.x.toFixed(2),z=+e.mesh.position.z.toFixed(2),ry=+e.mesh.rotation.y.toFixed(2),hp=Math.round(e.hp),al=e.alive?1:0;
+    if(force||e._sx==null||Math.abs(x-e._sx)>.03||Math.abs(z-e._sz)>.03||Math.abs(ry-(e._sry||0))>.06||hp!==e._shp||al!==e._salive){
+      out.push([i,x,z,ry,hp,al]); e._sx=x;e._sz=z;e._sry=ry;e._shp=hp;e._salive=al;
+    }
+  }
+  return out;
+}
+function applyEnemySnapshot(d){
+  for(const r of d.e){ const e=npcs[r[0]]; if(!e)continue;
+    e._netTX=r[1]; e._netTZ=r[2]; e._netTRY=r[3]; e.hp=r[4]; if(!e.maxhp)e.maxhp=r[4];
+    const al=!!r[5];
+    if(al&&!e.alive){ e.alive=true; if(!e.mesh.parent)scene.add(e.mesh); e.mesh.position.set(r[1],0,r[2]); e._netTX=r[1];e._netTZ=r[2]; }
+    else if(!al&&e.alive){ e.alive=false; mpKillCredit(e); deathBurst(e.mesh.position); scene.remove(e.mesh); }
+    if(e.bar){ e.bar.visible=al&&e.hp<e.maxhp; drawBar(e.bar,Math.max(0,e.hp/(e.maxhp||1))); }
+  }
+}
+// 隊員擊殺分紅：我最近打過它就給我經驗/錢
+function mpKillCredit(e){
+  if(e._hitByMeT&&t-e._hitByMeT<8){ gainXP(Math.floor((e.maxhp||20)/2.5*(1+P.level*.08))); addCoins(e.loot||5); floatText(e.mesh.position,'+'+(e.loot||5)+'🪙','#ffd700'); kills++; const kc=$('killCount'); if(kc)kc.textContent=kills; }
+}
+function mpSendOne(to,payload){
+  if(mp.mode==='peer'){ for(const c of mp.conns){ if(c.open&&c._pid===to){ try{c.send(payload);}catch(_){} return; } } }
+  else if(mp.mode==='supa'&&mp.channel){ mp.channel.send({type:'broadcast',event:'state',payload}); }
+}
+// 統一收訊分流（玩家狀態 / 敵人快照 / 傷害回報 / 受擊）
+function mpOnMessage(d,fromConn){
+  if(!d) return; const ty=d.t||'s';
+  if(ty==='s'){ onPeerState(d); if(mp.isHost&&fromConn) mpRelay(d,fromConn); }
+  else if(ty==='enemies'){ if(mpClientActive()) applyEnemySnapshot(d); }
+  else if(ty==='hit'){ if(mpHostActive()){ const e=npcs[d.i]; if(e&&e.alive&&e.def.type!=='cultboss') damageNPC(e,d.dmg); } }
+  else if(ty==='hurt'){ if(mpClientActive()) applyRemoteHurt(d); }
+}
+function applyRemoteHurt(d){
+  if(d.to&&mp.me&&d.to!==mp.me.id) return;
+  if(P.dodgeTimer>0) return;
+  const raw=Math.floor((d.atk||8)*(1+P.level*.05)), dmg=rand(raw-2,raw+3);
+  screenFlash();screenShake(.18);floatText(hero.position,'-'+dmg,'#ff6a6a');spawnHitParticles(hero.position,0xff2200,5);
+  P.hp-=dmg;lastCombatTime=0;refreshHud();if(P.hp<=0)gameOver();
+}
 window.mpOpen =()=>{ if(mode!=='play'){floatText(hero.position,'先進入江湖再組隊','#aaa');return;} $('mpModal').style.display='flex'; if(mp.active){ mpRoomShow(mp.code); $('mpStatus').textContent='已在隊伍　房號：'+mp.code; } else { mpRoomHide(); $('mpStatus').textContent='開一桌，把房號給朋友就能一起玩'; } };
 window.mpClose=()=>{ $('mpModal').style.display='none'; };
 function mpCode(){ const s='ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; let c=''; for(let i=0;i<6;i++)c+=s[Math.floor(Math.random()*s.length)]; return c; }
@@ -2221,6 +2303,12 @@ function mpTick(dt){
   // 廣播自己（~10Hz）
   mp.sendT-=dt;
   if(mp.sendT<=0 && mp.me && (mp.channel||mp.conns.length)){ mp.sendT=.1; mpSend(mpSelfPayload()); }
+  // 房主廣播敵人快照（share 房主的 data）：只送變動者，每 2 秒補一次完整同步
+  if(mpHostActive()){
+    mp._fullT=(mp._fullT==null?2:mp._fullT)-dt; const full=mp._fullT<=0; if(full)mp._fullT=2;
+    mp._enemyT=(mp._enemyT||0)-dt;
+    if(mp._enemyT<=0||full){ mp._enemyT=.12; const e=buildEnemySnapshot(full); if(e.length) mpSend({t:'enemies',e}); }
+  }
   // 內插＋更新隊友 avatar/血條/動畫
   for(const p of mp.peers.values()){
     if(p.demo){ const a=t*.5; p.tx=hero.position.x+Math.cos(a)*5; p.tz=hero.position.z+Math.sin(a)*5; p.tRy=a+Math.PI/2; p.anim='walk'; }
@@ -2265,13 +2353,14 @@ function mpHookConn(conn,asHost){
   conn.on('open',()=>{
     if(!mp.conns.includes(conn)) mp.conns.push(conn);
     try{ conn.send(mpSelfPayload()); }catch(_){}
-    if(!asHost){
+    if(asHost){ mp._fullT=0; }   // 新隊員加入 → 下一拍補一份完整敵人快照
+    else{
       mp.active=true; mpRoomShow(mp.code);
       $('mpStatus').textContent='✓ 已加入隊伍 '+mp.code+'！';
       floatText(hero.position,'已加入隊伍 '+mp.code,'#9ad8b0'); setTimeout(mpClose,900);
     }
   });
-  conn.on('data',d=>{ if(!d||!d.id)return; conn._pid=d.id; onPeerState(d); if(asHost) mpRelay(d,conn); });
+  conn.on('data',d=>{ if(!d)return; if(d.id)conn._pid=d.id; mpOnMessage(d,conn); });
   conn.on('close',()=>{
     mp.conns=mp.conns.filter(c=>c!==conn);
     if(asHost){ if(conn._pid)removePeer(conn._pid); }
@@ -2306,7 +2395,7 @@ async function mpConnect(code,isHost){
     mp.me={id:'p'+Math.random().toString(36).slice(2,8),name:mpMyName()};
     mp.code=code; mp.isHost=isHost;
     const ch=mp.supa.channel('party:'+code,{config:{broadcast:{self:false},presence:{key:mp.me.id}}});
-    ch.on('broadcast',{event:'state'},({payload})=>onPeerState(payload));
+    ch.on('broadcast',{event:'state'},({payload})=>mpOnMessage(payload,null));
     ch.on('presence',{event:'leave'},({key})=>removePeer(key));
     ch.subscribe(async st=>{ if(st==='SUBSCRIBED'){ await ch.track({name:mp.me.name,cls:chosenClass}); mp.active=true; mpRoomShow(code); $('mpStatus').textContent='✓ 已加入　房號：'+code+'（把房號給朋友）'; floatText(hero.position,'已加入隊伍 '+code,'#9ad8b0'); setTimeout(mpClose,900); } });
     mp.channel=ch;
@@ -2416,8 +2505,9 @@ function animate(){
     // NPC AI
     for(const e of npcs){
       if(!e.alive) continue;const d=dist2(hero,e.mesh);
+      const atgt=aggroTarget(e), ad=Math.hypot(atgt.x-e.mesh.position.x,atgt.z-e.mesh.position.z);   // 仇恨目標（主坦引怪）與距離
       if(e.def.type==='guard'){if(P.wanted>=3&&!e.hostile){e.hostile=true;e.state='chase';}if(P.wanted<3&&e.hostile&&e.hp===e.maxhp){e.hostile=false;e.state='patrol';}}
-      if((e.def.type==='bandit'||e.def.type==='hermit')&&d<20&&e.state==='patrol') e.state='chase';
+      if((e.def.type==='bandit'||e.def.type==='hermit')&&ad<20&&e.state==='patrol') e.state='chase';
       if(e.def.type==='guard'&&e.hostile&&d<15){ e._barkT=(e._barkT||0)-dt; if(e._barkT<=0){e._barkT=2.6+Math.random()*1.6;floatText(e.mesh.position,GUARD_BARKS[Math.floor(Math.random()*GUARD_BARKS.length)],'#ffe08a');} }  // 捕快唸不出名字
       if(e.def.type==='civilian'&&d<13){ e._barkT=(e._barkT||Math.random()*3)-dt; if(e._barkT<=0){e._barkT=3.5+Math.random()*3.5;
         let line;
@@ -2429,7 +2519,7 @@ function animate(){
       if(e.def.type==='hermit'&&d<18){ e._barkT=(e._barkT||Math.random()*2)-dt; if(e._barkT<=0){e._barkT=3.5+Math.random()*2.5;floatText(e.mesh.position,HERMIT_BARKS[Math.floor(Math.random()*HERMIT_BARKS.length)],'#d0b0ff');} }
       if(e.def.type==='elder'&&d<11){ e._barkT=(e._barkT||Math.random()*4)-dt; if(e._barkT<=0){e._barkT=5+Math.random()*4;floatText(e.mesh.position,MONK_AMBIENT[Math.floor(Math.random()*MONK_AMBIENT.length)],'#e8dcc0');} }
       if(e.def.type==='cultboss'){
-        if(d<26&&e.state==='patrol') e.state='chase';
+        if(ad<26&&e.state==='patrol') e.state='chase';
         if(e.state==='chase'&&!qteActive){               // 接戰後計時逼問
           if(e._engageTimer==null) e._engageTimer=CONFIG.boss.safetyCastInterval;
           e._engageTimer-=dt;
@@ -2443,6 +2533,14 @@ function animate(){
         if(e._enrage>0) e._enrage-=dt;
       }
       if(e.def.type==='civilian'&&e.hostile&&e.state!=='flee') e.state='flee';
+      if(mpClientActive() && e.def.type!=='cultboss'){
+        // 房主權威（share 房主的 data）：非 Boss 怪由房主廣播的位置內插，本機不跑 AI
+        if(e._netTX!=null){
+          e.mesh.position.x+=(e._netTX-e.mesh.position.x)*Math.min(1,dt*12);
+          e.mesh.position.z+=(e._netTZ-e.mesh.position.z)*Math.min(1,dt*12);
+          let dr=(e._netTRY||0)-e.mesh.rotation.y; while(dr>Math.PI)dr-=2*Math.PI; while(dr<-Math.PI)dr+=2*Math.PI; e.mesh.rotation.y+=dr*Math.min(1,dt*12);
+        }
+      }else{
       if(e.state==='patrol'&&e.def.patrol){
         const wp=e.def.patrol[e.patrolIdx],pdx=wp[0]-e.mesh.position.x,pdz=wp[1]-e.mesh.position.z,pd=Math.hypot(pdx,pdz);
         if(pd<1.0)e.patrolIdx=(e.patrolIdx+1)%e.def.patrol.length;
@@ -2457,18 +2555,19 @@ function animate(){
           e._stun-=dt; e._winding=false; e._stunZ=(e._stunZ||0)-dt;
           if(e._stunZ<=0){e._stunZ=.45;floatText(e.mesh.position,'★ 暈！','#ffe14d');}
           e.mesh.rotation.y+=dt*7;
-        }else if(d>e.def.range){const cx=(hero.position.x-e.mesh.position.x)/d,cz=(hero.position.z-e.mesh.position.z)/d;e.mesh.position.x+=cx*e.def.spd*dt;e.mesh.position.z+=cz*e.def.spd*dt;e.mesh.rotation.y=Math.atan2(cx,cz);e.atkTimer=e.def.cd;e._winding=false;}
+        }else if(ad>e.def.range){const cx=(atgt.x-e.mesh.position.x)/ad,cz=(atgt.z-e.mesh.position.z)/ad;e.mesh.position.x+=cx*e.def.spd*dt;e.mesh.position.z+=cz*e.def.spd*dt;e.mesh.rotation.y=Math.atan2(cx,cz);e.atkTimer=e.def.cd;e._winding=false;}
         else{
           e.atkTimer-=dt;
           if(!e._winding && e.atkTimer<=0.42 && e.atkTimer>0){   // 出手預警：看到⚡就格擋/翻滾
             e._winding=true; floatText(e.mesh.position,'⚡','#ff5555'); spawnHitParticles(e.mesh.position,0xff3322,4);
             playNpcAttack(e,0.55);   // 揮刀動作，命中在動作中段
           }
-          if(e.atkTimer<=0){e.atkTimer=e.def.cd;e._winding=false;if(P.dodgeTimer<=0)damagePlayer(e);e.mesh.position.y=.28;}
+          if(e.atkTimer<=0){e.atkTimer=e.def.cd;e._winding=false;mpDamageTarget(e);e.mesh.position.y=.28;}
         }
-        if(d>35)e.state=e.def.patrol?'patrol':'wander';
+        if(ad>35)e.state=e.def.patrol?'patrol':'wander';
       }else if(e.state==='flee'){
-        if(d<22){const fx=(e.mesh.position.x-hero.position.x)/d,fz=(e.mesh.position.z-hero.position.z)/d;e.mesh.position.x+=fx*e.def.spd*1.4*dt;e.mesh.position.z+=fz*e.def.spd*1.4*dt;}else e.state='wander';
+        if(ad<22){const fx=(e.mesh.position.x-atgt.x)/ad,fz=(e.mesh.position.z-atgt.z)/ad;e.mesh.position.x+=fx*e.def.spd*1.4*dt;e.mesh.position.z+=fz*e.def.spd*1.4*dt;}else e.state='wander';
+      }
       }
       if(e.flash>0){e.flash-=dt;e.mesh.scale.setScalar(1+e.flash*1.1);}else e.mesh.scale.setScalar(1);
       e.mesh.position.y+=(0-e.mesh.position.y)*Math.min(1,dt*10);
