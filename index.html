@@ -662,12 +662,14 @@ function heroPlayOnce(name,dur){
 
 // ── 依職業載入主角模型 ──
 // 大俠(knight)=Meshy生成、無內建武器→掛劍+完整動畫；其餘職業=圖生3D、武器已內建在模型
+// 各 Meshy 角色同骨架，大俠的攻擊/絕招片段可 retarget 到任何職業
+const ATK_ANIMS=[['run','models/daxia/run.glb'],['attack','models/daxia/skill.glb'],['skill','models/daxia/attack.glb']];
 const HERO_MODELS={
-  knight:  {model:'models/daxia/walk.glb', mh:1.1, anims:[['run','models/daxia/run.glb'],['attack','models/daxia/skill.glb'],['skill','models/daxia/attack.glb']], weapon:true},
-  sword:   {model:'models/sword/walk.glb',    mh:1.15},
-  assassin:{model:'models/assassin/walk.glb', mh:1.1},
-  healer:  {model:'models/healer/walk.glb',   mh:1.1},
-  archer:  {model:'models/archer/walk.glb',   mh:1.15},
+  knight:  {model:'models/daxia/walk.glb', mh:1.1,  anims:ATK_ANIMS, weapon:true},
+  sword:   {model:'models/sword/walk.glb',    mh:1.15, anims:ATK_ANIMS},
+  assassin:{model:'models/assassin/walk.glb', mh:1.1,  anims:ATK_ANIMS},
+  healer:  {model:'models/healer/walk.glb',   mh:1.1,  anims:ATK_ANIMS},
+  archer:  {model:'models/archer/walk.glb',   mh:1.15, anims:ATK_ANIMS},
 };
 function attachHeroWeapon(boneName,url,cfg,hideHandName){
   const bones={}; heroModel.traverse(o=>{if(o.isBone)bones[o.name]=o;});
@@ -1189,6 +1191,21 @@ function playNpcAnim(e,name){
   else{act.paused=false;act.setLoop(THREE.LoopRepeat,Infinity);act.play();}
   if(e.curAct&&e.curAct!==act) e.curAct.fadeOut?.(.15),e.curAct.stop();
   e.curAct=act; e.npcAnim=name;
+}
+// 共用攻擊動畫片段（大俠骨架＝所有 Meshy 角色同骨架，可直接 retarget 到任何 NPC）
+const SHARED_ANIM={};
+gltfLoader.load('models/daxia/attack.glb',g=>{if(g.animations[0])SHARED_ANIM.attack=g.animations[0];});
+gltfLoader.load('models/daxia/skill.glb', g=>{if(g.animations[0])SHARED_ANIM.skill =g.animations[0];});
+// NPC 揮一刀：把攻擊片段壓縮成 dur 秒播一次，期間鎖住走/站動畫
+function playNpcAttack(e,dur=0.6){
+  if(!e.mixer) return;
+  const clip = (e.def.type==='hermit'||e.def.type==='bandit') ? (SHARED_ANIM.skill||SHARED_ANIM.attack) : SHARED_ANIM.attack;
+  if(!clip) return;
+  const act=e.mixer.clipAction(clip);
+  act.reset(); act.enabled=true; act.setLoop(THREE.LoopOnce,1); act.clampWhenFinished=true;
+  act.setEffectiveTimeScale(clip.duration/dur); act.setEffectiveWeight(1);
+  if(e.curAct&&e.curAct!==act) act.crossFadeFrom(e.curAct,.08,false);
+  act.play(); e.curAct=act; e.npcAnim='attack'; e._atkLock=dur;
 }
 npcs.forEach(setupNpcModel);
 
@@ -1977,6 +1994,7 @@ function animate(){
           e.atkTimer-=dt;
           if(!e._winding && e.atkTimer<=0.42 && e.atkTimer>0){   // 出手預警：看到⚡就格擋/翻滾
             e._winding=true; floatText(e.mesh.position,'⚡','#ff5555'); spawnHitParticles(e.mesh.position,0xff3322,4);
+            playNpcAttack(e,0.55);   // 揮刀動作，命中在動作中段
           }
           if(e.atkTimer<=0){e.atkTimer=e.def.cd;e._winding=false;if(P.dodgeTimer<=0)damagePlayer(e);e.mesh.position.y=.28;}
         }
@@ -1991,7 +2009,8 @@ function animate(){
         e.mixer.update(dt);
         const moved=e.mesh.position.distanceTo(e._lastPos)>0.004;
         e._lastPos.copy(e.mesh.position);
-        playNpcAnim(e,moved?'walk':'idle');
+        if(e._atkLock>0){ e._atkLock-=dt; if(e._atkLock<=0)e.npcAnim=''; }   // 揮刀鎖定期間不切回走/站
+        else playNpcAnim(e,moved?'walk':'idle');
       }
       // 靜態巨龍：浮空+擺動，不要僵住
       if(e.def.type==='cultboss'&&!e.mixer){ e.mesh.position.y=Math.abs(Math.sin(t*1.2))*0.25; if(e.model)e.model.rotation.z=Math.sin(t*0.9)*0.05; }
